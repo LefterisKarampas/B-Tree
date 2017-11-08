@@ -38,20 +38,17 @@ int AM_CreateIndex(char *fileName,
   BF_Block_Init(&block);                                                          //Initialize Block
   if((AM_errno = BF_CreateFile(fileName)) != BF_OK){                                 //Create a new Block File
     BF_Block_Destroy(&block);
-    BF_PrintError(AM_errno);                                                         //If the creation fails
     return AM_errno;                                                              //Return error
   }
 
   if((AM_errno = BF_OpenFile(fileName, &fd)) != BF_OK){                              //Open the file
     BF_Block_Destroy(&block);
-    BF_PrintError(AM_errno);                                                           //If fails 
     return AM_errno;                                                                //Return error
   }
 
   if((AM_errno = BF_AllocateBlock(fd, block)) != BF_OK){                            //Allocate a new block
     BF_CloseFile(fd);
     BF_Block_Destroy(&block);
-    BF_PrintError(AM_errno);                                                           //If fails 
     return AM_errno;                                                                //Return error
   } 
 
