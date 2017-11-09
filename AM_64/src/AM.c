@@ -36,10 +36,10 @@ int AM_CreateIndex(char *fileName,
 	               int attrLength2) {
   int fd;
   BF_Block *block;
-  BF_Block_Init(&block);                                                          //Initialize Block
-  if((AM_errno = BF_CreateFile(fileName)) != BF_OK){                                 //Create a new Block File
+  BF_Block_Init(&block);                                                            //Initialize Block
+  if((AM_errno = BF_CreateFile(fileName)) != BF_OK){                                //Create a new Block File
     BF_Block_Destroy(&block);
-    return AM_errno;                                                              //Return error
+    return AM_errno;                                                                //Return error
   }
 
   if((AM_errno = BF_OpenFile(fileName, &fd)) != BF_OK){                              //Open the file
@@ -79,14 +79,14 @@ int AM_DestroyIndex(char *fileName) {
   int i;
   for (i=0;i<MAXOPENFILES;i++)		
   {
-	if (Open_Files[i]!=NULL)
-	{
-		if (strcmp(fileName,Open_Files[i]->filename))	//check for filename
-			continue;
-		return AM_errno;				//file open - Error
-	}
+  	if (Open_Files[i]!=NULL)
+  	{
+  		if (strcmp(fileName,Open_Files[i]->filename))	                                  //check for filename
+  			continue;
+  		return AM_errno;				                                                        //file open - Error
+  	}
   }
-  unlink(fileName);						//delete file	
+  unlink(fileName);						                                                       //delete file	
   return AME_OK;
 }
 
@@ -98,68 +98,69 @@ int AM_OpenIndex (char *fileName) {
   BF_Block_Init(&block);
   if((AM_errno = BF_OpenFile(fileName, &fd)) != BF_OK)
   {
-  	BF_Block_Destroy(&block);
-	return AM_errno;
+    BF_Block_Destroy(&block);
+    return AM_errno;
   }
   BF_GetBlock(fd,0,block);
   data = BF_Block_GetData(block);
   if (strcmp(data,"B+"))
   {
-	BF_UnpinBlock(block);
-	BF_Block_Destroy(&block);
-	return AM_errno;
+    BF_UnpinBlock(block);
+    BF_Block_Destroy(&block);
+    return AM_errno;
   }
   int i;
   for (i=0;i<MAXOPENFILES;i++)
   {
-	if (Open_Files[i] == NULL)	//find empty cell ,create struct and fill it
-	{
-		int m=3;
-		Open_Files[i] = malloc(sizeof(open_files));		
-		Open_Files[i]->fd = fd;
-		memcpy(&(Open_Files[i]->filename),&fileName,strlen(fileName)+1);
-		memcpy(&(Open_Files[i]->attrType1),&data[m],sizeof(char));
-		m+=1;
-		memcpy(&(Open_Files[i]->attrLength1),&data[m],sizeof(int));
-		m+=sizeof(int);
-		memcpy(&(Open_Files[i]->attrType2),&data[m],sizeof(char));
-		m+=1;
-		memcpy(&(Open_Files[i]->attrLength2),&data[m],sizeof(int));
-		m+=sizeof(int);
-		memcpy(&(Open_Files[i]->root_number),&data[m],sizeof(int));
-		BF_UnpinBlock(block);          
-		BF_CloseFile(fd);                                                                 
-  		BF_Block_Destroy(&block);
-		return i;			//return cell's position
-	} 	
+    if (Open_Files[i] == NULL)	                                                    //find empty cell ,create struct and fill it
+    {
+    	int m=3;
+    	Open_Files[i] = malloc(sizeof(open_files));		
+    	Open_Files[i]->fd = fd;
+    	memcpy(&(Open_Files[i]->filename),&fileName,strlen(fileName)+1);
+    	memcpy(&(Open_Files[i]->attrType1),&data[m],sizeof(char));
+    	m+=1;
+    	memcpy(&(Open_Files[i]->attrLength1),&data[m],sizeof(int));
+    	m+=sizeof(int);
+    	memcpy(&(Open_Files[i]->attrType2),&data[m],sizeof(char));
+    	m+=1;
+    	memcpy(&(Open_Files[i]->attrLength2),&data[m],sizeof(int));
+    	m+=sizeof(int);
+    	memcpy(&(Open_Files[i]->root_number),&data[m],sizeof(int));
+    	BF_UnpinBlock(block);          
+    	BF_CloseFile(fd);                                                                 
+    	BF_Block_Destroy(&block);
+    	return i;			                                                                //return cell's position
+    } 	
   }
-  return AME_OK;
+  return -1;
 }
 
 
 int AM_CloseIndex (int fileDesc) {
   int i;
-  for (i=0;i<MAXSCANS;i++)	
+
+  for (i=0;i<MAXSCANS;i++)                                                      //Search for active scans	
   {
-	if (Scan_Files[i]!=NULL)
-	{
-		if (Scan_Files[i]->fd == fileDesc)
-			return AM_errno;
-	}
+    if (Scan_Files[i]!=NULL)
+    {
+      if (Scan_Files[i]->fd == fileDesc)                                        //If exists
+        return AM_errno;                                                        //Return error
+    }
   }
-  for (i=0;i<MAXOPENFILES;i++)		//pws diagrafw to arxeio ?
+
+  for (i=0;i<MAXOPENFILES;i++)		                                              
   {
-	if (Open_Files[i]!=NULL)
-	{
-		if (Open_Files[i]->fd == fileDesc)
-		{
-			free(Open_Files[i]);
-			Open_Files[i]=NULL;	//den xerw an xreiazetai auto
-		}
-	}
+  	if (Open_Files[i]!=NULL)
+  	{
+  		if (Open_Files[i]->fd == fileDesc)
+  		{
+  			free(Open_Files[i]);
+  			Open_Files[i]=NULL;	                                                    
   }
+
   if((AM_errno = BF_CloseFile(fileDesc)) != BF_OK)
-	return AM_errno;
+	 return AM_errno;
   return AME_OK;
 }
 
@@ -204,7 +205,6 @@ void AM_Close() {
   if(Open_Files != NULL){
     for(i=0;i<MAXOPENFILES;i++){
       if(Open_Files[i] != NULL){
-        free(Open_Files[i]->filename);
         free(Open_Files[i]);
       }
     }
