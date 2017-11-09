@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <unistd.h>
 
 int AM_errno = AME_OK;
 
@@ -51,7 +52,6 @@ int AM_CreateIndex(char *fileName,
     BF_Block_Destroy(&block);
     return AM_errno;                                                                //Return error
   } 
-
   char* data;
   data = BF_Block_GetData(block);
   int m = 0;
@@ -59,11 +59,11 @@ int AM_CreateIndex(char *fileName,
   m+=3;
   data[3] = attrType1;                                                              //Store the type of key  
   m += 1;
-  memcpy(data+m,(char *)attrLength1,sizeof(int));                                   //Store the length of key
+  memcpy(data+m,(char *)&attrLength1,sizeof(int));                                   //Store the length of key 
   m+=sizeof(int);
   data[m] = attrType2;                                                              //Store the type second field
   m+=1;
-  memcpy(data+m,(char *)attrType2,sizeof(int));                                     //Store the length of second field
+  memcpy(data+m,(char *)&attrType2,sizeof(int));                                     //Store the length of second field 
   m+=sizeof(int);           
   memcpy(data+m,"-1",sizeof(int));                                                  //Set root as not exists
   BF_Block_SetDirty(block);                                                         //Set block Dirty
@@ -75,16 +75,91 @@ int AM_CreateIndex(char *fileName,
 
 
 int AM_DestroyIndex(char *fileName) {
+
+  int i;
+  for (i=0;i<MAXOPENFILES;i++)		
+  {
+	if (Open_Files[i]!=NULL)
+	{
+		if (strcmp(fileName,Open_Files[i]->filename))	//check for filename
+			continue;
+		return AM_errno;				//file open - Error
+	}
+  }
+  unlink(fileName);						//delete file	
   return AME_OK;
 }
 
 
 int AM_OpenIndex (char *fileName) {
+  int fd;
+  char *data;
+  BF_Block *block;
+  BF_Block_Init(&block);
+  if((AM_errno = BF_OpenFile(fileName, &fd)) != BF_OK)
+  {
+  	BF_Block_Destroy(&block);
+	return AM_errno;
+  }
+  BF_GetBlock(fd,0,block);
+  data = BF_Block_GetData(block);
+  if (strcmp(data,"B+"))
+  {
+	BF_UnpinBlock(block);
+	BF_Block_Destroy(&block);
+	return AM_errno;
+  }
+  int i;
+  for (i=0;i<MAXOPENFILES;i++)
+  {
+	if (Open_Files[i] == NULL)	//find empty cell ,create struct and fill it
+	{
+		int m=3;
+		Open_Files[i] = malloc(sizeof(open_files));		
+		Open_Files[i]->fd = fd;
+		memcpy(&(Open_Files[i]->filename),&fileName,strlen(fileName)+1);
+		memcpy(&(Open_Files[i]->attrType1),&data[m],sizeof(char));
+		m+=1;
+		memcpy(&(Open_Files[i]->attrLength1),&data[m],sizeof(int));
+		m+=sizeof(int);
+		memcpy(&(Open_Files[i]->attrType2),&data[m],sizeof(char));
+		m+=1;
+		memcpy(&(Open_Files[i]->attrLength2),&data[m],sizeof(int));
+		m+=sizeof(int);
+		memcpy(&(Open_Files[i]->root_number),&data[m],sizeof(int));
+		BF_UnpinBlock(block);          
+		BF_CloseFile(fd);                                                                 
+  		BF_Block_Destroy(&block);
+		return i;			//return cell's position
+	} 	
+  }
   return AME_OK;
 }
 
 
 int AM_CloseIndex (int fileDesc) {
+  int i;
+  for (i=0;i<MAXSCANS;i++)	
+  {
+	if (Scan_Files[i]!=NULL)
+	{
+		if (Scan_Files[i]->fd == fileDesc)
+			return AM_errno;
+	}
+  }
+  for (i=0;i<MAXOPENFILES;i++)		//pws diagrafw to arxeio ?
+  {
+	if (Open_Files[i]!=NULL)
+	{
+		if (Open_Files[i]->fd == fileDesc)
+		{
+			free(Open_Files[i]);
+			Open_Files[i]=NULL;	//den xerw an xreiazetai auto
+		}
+	}
+  }
+  if((AM_errno = BF_CloseFile(fileDesc)) != BF_OK)
+	return AM_errno;
   return AME_OK;
 }
 
