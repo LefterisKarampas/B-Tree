@@ -12,6 +12,7 @@ int AM_errno = AME_OK;
 open_files **Open_Files = NULL;
 scan_files **Scan_Files = NULL;
 
+int traverse(int fileDesc, int block_num,void* value1);
 int compare(void *value1,void *value2,char attrType,int attrLength1);
 
 /*Initialize the global structures and BF*/
@@ -130,8 +131,7 @@ int AM_OpenIndex (char *fileName) {
     	memcpy(&(Open_Files[i]->attrLength2),&data[m],sizeof(int));
     	m+=sizeof(int);
     	memcpy(&(Open_Files[i]->root_number),&data[m],sizeof(int));
-    	BF_UnpinBlock(block);          
-    	//BF_CloseFile(fd);                                                                 
+    	BF_UnpinBlock(block);                                                                          
     	BF_Block_Destroy(&block);
     	return i;			                                                                //return cell's position
     } 	
@@ -172,7 +172,7 @@ int AM_CloseIndex (int fileDesc) {
 
 int AM_InsertEntry(int fileDesc, void *value1, void *value2) {
 	
-	int x=traverse(fileDesc, value1);
+	
   return AME_OK;
 }
 
@@ -228,45 +228,122 @@ void AM_Close() {
   BF_Close();
 }
 
-int traverse(int fileDesc, void* value1)
+int traverse(int fileDesc, int block_num,void* value1)
 {
 
 	BF_Block *block;
   	BF_Block_Init(&block); 
   	char* data;
-  	int fdesc, counter, i, m=0 , pointer_value,temp;
+  	int counter, i, m=0 , pointer_value,temp;
 
-  	if ((AM_errno = BF_OpenFile(Open_Files[fileDesc]->filename, &fdesc)) != BF_OK)
+  	if ((AM_errno = BF_GetBlock(Open_Files[fileDesc]->fd, block_num, block)) != BF_OK)
   	{
   		BF_Block_Destroy(&block);
   		return AM_errno;
   	}
-  	if ((AM_errno = BF_GetBlock(fdesc, Open_Files[fileDesc]->root_number, block)) != BF_OK)
-  	{
-  		BF_Block_Destroy(&block);
-  		return AM_errno;
-  	}
+
   	data = BF_Block_GetData(block);
-  	m+=1;
-  	memcpy(&counter, &data[m], sizeof(int));
-  	m+= 2*sizeof(int);												//position: first key in block
-  	void* val2;
-  	for (i=0;i<counter;i++)
+  	if (data[0] == 'd')												// in data block , stop here
   	{
-  		memcpy(val2, &data[m], Open_Files[fileDesc]->attrLength1);
-  		if ((temp = compare(value1, val2, Open_Files[fileDesc]->attrType1, Open_Files[fileDesc]->attrLength1)) == 0)
-  		{
-  			m-=sizeof(int);
-  			memcpy(&pointer_value, &data[m], sizeof(int));
-  			m+= (2*sizeof(int) + Open_Files[fileDesc]->attrLength1);			//position : next key in block
-  			BF_UnpinBlock(block);
-  			BF_Block_Destroy(&block);
-  			return pointer_value;												
-  		}
-  		else
-  			m+= (sizeof(int) + Open_Files[fileDesc]->attrLength1); 
+  		BF_UnpinBlock(block);
+  		BF_Block_Destroy(&block);
+  		return -1;													//Return -1 for data block
   	}
 
+  	m+=1;
+  	memcpy(&counter, &data[m], sizeof(int));												
+  	if (value1!=NULL)
+  	{
+  		m+= 2*sizeof(int);											//position: first key in block
+  		int next_pointer=-1;											
+  		int prev_pointer=-1;
+	  	void* val2;
+
+	  	for (i=0;i<counter;i++)
+	  	{
+	  		memcpy(val2, &data[m], Open_Files[fileDesc]->attrLength1);
+	  		if (!compare(value1, val2, Open_Files[fileDesc]->attrType1, Open_Files[fileDesc]->attrLength1))
+	  			break;
+	  		else
+	  		{
+	  			memcpy(&prev_pointer, &data[m-sizeof(int)], sizeof(int));						//hold previous pointer block number
+	  			m+= (sizeof(int) + Open_Files[fileDesc]->attrLength1); 							//go next key
+	  		}
+	  	}
+
+	  	m-=sizeof(int);
+		memcpy(&pointer_value, &data[m], sizeof(int));
+		//If pointer == -1 then we have to create a new data block
+		if (pointer_value == -1)
+		{
+			//Insert the pointer of the new block in index block
+			int temp;															//The new Block's id
+			BF_GetBlockCounter(Open_Files[fileDesc]->fd, &temp);
+			memcpy(&data[m], &temp, sizeof(int));								//update new block pointer
+		  	//Get the next pointer data block to connect it with the new data block
+		  	if (i<c)															//that means that there is next pointer
+		  	{
+		  		memcpy(&next_pointer, &data[m+sizeof(int)+Open_Files[fileDesc]->attrLength1], sizeof(int));
+
+		  	}
+		  	BF_Block_SetDirty(block);
+		  	BF_UnpinBlock(block);
+		  	//Update the connection with the previous data block
+		  	if (prev_pointer!=-1)
+		  	{
+		  		int temp_next_pointer;
+		  		BF_GetBlock(Open_Files[fileDesc]->fd, prev_pointer, block);
+		  		data = BF_Block_GetData(block);
+		  		memcpy(&temp_next_pointer, &data[BF_BLOCK_SIZE- sizeof(int)], sizeof(int)]);
+		  		memcpy(&data[BF_BLOCK_SIZE- sizeof(int)], &temp,sizeof(int)]);
+				BF_Block_SetDirty(block);
+		  		BF_UnpinBlock(block);
+		  	}
+		  	//Store the next_pointer
+		  	if (temp_next_pointer!=-1)
+		  	{
+		  		next_pointer = temp_next_pointer;
+		  	}
+		  	//Create the new data block and initilize it
+			BF_AllocateBlock(Open_Files[fileDesc]->fd, block);
+			data[0] = 'd';
+			int temp_num=0;
+			memcpy(&data[1], &temp_num, sizeof(int));
+			//set first and last pointer to previous and next values
+			memcpy(&data[sizeof(char)+sizeof(int)], &prev_pointer, sizeof(int));				//Initialize the prev pointer								
+			memcpy(&data[BF_BLOCK_SIZE - sizeof(int)], &next_pointer, sizeof(int));				//Initialize the next pointer
+			BF_Block_SetDirty(block);
+			BF_UnpinBlock(block);
+			//Update the conneciton with the next data block 
+			if (next_pointer!=-1)
+			{
+				BF_GetBlock(Open_Files[fileDesc]->fd, next_pointer, block);
+				data = BF_Block_GetData(block);
+				memcpy(&data[sizeof(char)+sizeof(int)], &temp, sizeof(int));
+				BF_Block_SetDirty(block);
+				BF_UnpinBlock(block);
+			}
+
+		}
+		else
+			BF_UnpinBlock(block);
+		BF_Block_Destroy(&block);
+		return pointer_value;					//Return the block		
+
+	}
+	//Find the most left block for OpenScanIndex (NOT_EQUAL,LESS,LESS_OR_EQUAL)
+	else
+	{
+		m+=sizeof(int);
+		for (i=0;i<=counter;i++)
+		{
+			memcpy(&pointer_value, &data[m], sizeof(int));
+			if (pointer_value!=-1)
+				return pointer_value;
+			else
+				m+= sizeof(int) + Open_Files[fileDesc]->attrLength1;
+		}
+	}
 }
 
 int compare(void *value1,void *value2,char attrType,int attrLength1)
