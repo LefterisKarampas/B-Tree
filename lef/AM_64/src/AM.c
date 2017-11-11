@@ -220,3 +220,67 @@ void AM_Close() {
   }
   BF_Close();
 }
+
+
+//Compare function for all possible types, return 0 if x1 < x2 else return 1
+int compare(void * value1,void *value2,char attrType,int attrLength){
+  if(attrType == 'c'){                                                    //If type is char *
+    char x1[attrLength1];
+    char x2[attrLength1];
+    strncpy(x1,(char *)value1,attrLength);                                //Copy the string in temp_var
+    x1[attrLength1-1] = '\0';
+    strncpy(x2,(char *)value2,attrLength);                                //Copy the string in temp_var
+    x2[attrLength1-1] = '\0';
+    return (strcmp(x1,x2) < 0? 0:1);    //Return 0 if x1 < x2 else return 1
+  }
+  else{
+    if(attrType == 'f'){                                                  //If type is float
+      if((*(float *)value1) < *((float *)value2)){
+        return 0;                                                         //Return 0 if x1 < x2
+      }
+    }
+    else if(*((int *)value1) < *((int *)value2)){                         //If type is int
+      return 0;                                                           //Return 0 if x1 <X2
+    }
+  }
+  return 1;                                                               //Return 1 if x1>=x2
+}
+
+
+//Sort entries of the data block 
+int sort(int index,int block_num,void *value1,void *value2){
+  BF_Block *block;
+  BF_Block_Init(&block);
+  char* data;
+  BF_GetBlock(fd,block_num,block);                                        //Read block
+  data = BF_Block_GetData(block);
+  int attrLength1 = Open_Files[index]->attrLength1;                       //Hold attr1 length
+  int attrLength2 = Open_Files[index]->attrLength2;                       //Hold attr1 length
+  int * counter = (int *)&(data[1]);                                      //Get the counter of entries
+  int i;
+  int m = sizeof(char)+sizeof(int);                                       
+  int flag = 0;
+  //From the last entry to the first of block, find the position to insert the new entry
+  for(i=*counter-1;i>=0;i++){
+    void * temp = &data[m+(attrLength1+attrLength2)*i];
+    //Compare the new entry with the current, if new < current then shift right the current
+    if(!compare(value1,temp,Open_Files[index]->attrType1,attrLength1)){ 
+      memcpy(&data[m+(attrLength1+attrLength2)*(i+1)],(char *)temp,attrLength1);
+      temp = &data[m+(attrLength1+attrLength2)*i+attrLength1];
+      memcpy(&data[m+(attrLength1+attrLength2)*(i+1)+attrLength1],(char *)temp,attrLength2);
+    }
+    //Else insert the new entry, right of the current
+    else{
+      memcpy(&data[m+(attrLength1+attrLength2)*(i+1)],(char *)value1,attrLength1);
+      memcpy(&data[m+(attrLength1+attrLength2)*(i+1)+attrLength1],(char *)value2,attrLength2);
+      flag = 1;
+      break;
+    }
+  }
+  //If new entry is the min key then insert it as first
+  if(flag = 0){
+    memcpy(&data[m],(char *)value1,attrLength1);
+    memcpy(&data[m+attrLength1],(char *)value2,attrLength2);
+  }
+}
+
