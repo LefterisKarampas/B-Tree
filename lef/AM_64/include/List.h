@@ -13,9 +13,5 @@ int List_Push(List *,int);
 int List_Pop(List *);
 void List_Destroy(List *);
 
-typedef struct split_d{
-	int pointer;
-	void *value;
-}Split_Data;
 
 #endif
