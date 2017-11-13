@@ -17,3 +17,7 @@ bf_main1:
 bf_main2:
 	@echo " Compile bf_main2 ...";
 	gcc -I ./include/ -L ./lib/ -Wl,-rpath,./lib/ ./examples/bf_main2.c -lbf -o ./build/bf_main2 -O2
+	
+bf_main3:
+	@echo " Compile bf_main3 ...";
+	gcc -I ./include/ -L ./lib/ -Wl,-rpath,./lib/ ./examples/bf_main3.c -lbf -o ./build/bf_main3 -O2
