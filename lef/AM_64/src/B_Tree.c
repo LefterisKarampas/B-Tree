@@ -281,7 +281,7 @@ Split_Data * split(int fileDesc,BF_Block * block,char *data,int block_num,void *
 
 
 
-int traverse(int fileDesc, int block_num,void* value1)
+int traverse(int fileDesc, int block_num,void* value1,int *op)
 {
 	BF_Block *block;
 	BF_Block_Init(&block); 
@@ -294,14 +294,40 @@ int traverse(int fileDesc, int block_num,void* value1)
 	}
 
 	data = BF_Block_GetData(block);
+  m+=1;
+  memcpy(&counter, &data[m], sizeof(int));
 	if (data[0] == 'd')												// in data block , stop here
 	{
-		BF_UnpinBlock(block);
-		BF_Block_Destroy(&block);
-		return -1;													//Return -1 for data block
+    int size = Open_Files[fileDesc]->attrLength1 + Open_Files[fileDesc]->attrLength2;
+    m = sizeof(char)+2*sizeof(int);
+    switch(*op){
+      case 1:{
+        for(i=0;i<counter;i++){
+          if((!op_function(value1,&data[m+size*i],Open_Files[fileDesc]->attrType1,Open_Files[fileDesc]->attrLength1,*op))){
+            *op = i;
+            break;
+          }
+        }
+        break;
+      }
+      case 4:
+      case 6:{
+        for(i=0;i<counter;i++){
+          if((op_function(value1,&data[m+size*i],Open_Files[fileDesc]->attrType1,Open_Files[fileDesc]->attrLength1,*op))){
+            *op = i;
+            break;
+          }
+        }
+        break;
+      }
+      default:{
+        *op = 0;
+      }
+    }
+    BF_UnpinBlock(block);
+    BF_Block_Destroy(&block);
+    return -1;													//Return -1 for data block
 	}
-	m+=1;
-	memcpy(&counter, &data[m], sizeof(int));
 	if (value1!=NULL)
 	{
 		m+= 2*sizeof(int);											//position: first key in block
@@ -331,67 +357,75 @@ int traverse(int fileDesc, int block_num,void* value1)
   	m-=sizeof(int);
 		memcpy(&pointer_value, &data[m], sizeof(int));
 		//If pointer == -1 then we have to create a new data block
-		if (pointer_value == -1)
-		{
-			//Insert the pointer of the new block in index block
-			BF_GetBlockCounter(Open_Files[fileDesc]->fd, &temp);
-			memcpy(&data[m], &temp, sizeof(int));								//update new block pointer
-		  	//Get the next pointer data block to connect it with the new data block
-	  	if (i<counter)															//that means that there is next pointer
-	  	{
-	  		memcpy(&next_pointer, &data[m+sizeof(int)+Open_Files[fileDesc]->attrLength1], sizeof(int));
+    //
+    if(*op == -1){
+  		if (pointer_value == -1)
+  		{
+  			//Insert the pointer of the new block in index block
+  			BF_GetBlockCounter(Open_Files[fileDesc]->fd, &temp);
+  			memcpy(&data[m], &temp, sizeof(int));								//update new block pointer
+  		  	//Get the next pointer data block to connect it with the new data block
+  	  	if (i<counter)															//that means that there is next pointer
+  	  	{
+  	  		memcpy(&next_pointer, &data[m+sizeof(int)+Open_Files[fileDesc]->attrLength1], sizeof(int));
 
-	  	}
-	  	BF_Block_SetDirty(block);
-	  	BF_UnpinBlock(block);
-		  	//Update the connection with the previous data block
-	  	int temp_next_pointer = -1;
-	  	if (prev_pointer!=-1)
-	  	{
-	  		int temp_next_pointer;
-	  		BF_GetBlock(Open_Files[fileDesc]->fd, prev_pointer, block);
-	  		data = BF_Block_GetData(block);
-	  		memcpy(&temp_next_pointer, &data[BF_BLOCK_SIZE- sizeof(int)], sizeof(int));
-	  		memcpy(&data[BF_BLOCK_SIZE- sizeof(int)], &temp,sizeof(int));
-			  BF_Block_SetDirty(block);
-	  		BF_UnpinBlock(block);
-	  	}
-	  	//Store the next_pointer
-	  	if (temp_next_pointer!=-1)
-	  	{
-	  		next_pointer = temp_next_pointer;
-	  	}
-	  	//Create the new data block and initilize it
-			BF_AllocateBlock(Open_Files[fileDesc]->fd, block);
-      data = BF_Block_GetData(block);
-			data[0] = 'd';
-			int counter_entry=0;
-			memcpy(&data[1], &counter_entry, sizeof(int));
-			//set first and last pointer to previous and next values
-			memcpy(&data[sizeof(char)+sizeof(int)], &prev_pointer, sizeof(int));				//Initialize the prev pointer								
-			memcpy(&data[BF_BLOCK_SIZE - sizeof(int)], &next_pointer, sizeof(int));				//Initialize the next pointer
-			BF_Block_SetDirty(block);
-			BF_UnpinBlock(block);
-			//Update the conneciton with the next data block 
-			if (next_pointer!=-1)
-			{
-				BF_GetBlock(Open_Files[fileDesc]->fd, next_pointer, block);
-				data = BF_Block_GetData(block);
-				memcpy(&data[sizeof(char)+sizeof(int)], &temp, sizeof(int));
-				BF_Block_SetDirty(block);
-				BF_UnpinBlock(block);
-			}
-		}
-		else{
+  	  	}
+  	  	BF_Block_SetDirty(block);
+  	  	BF_UnpinBlock(block);
+  		  	//Update the connection with the previous data block
+  	  	int temp_next_pointer = -1;
+  	  	if (prev_pointer!=-1)
+  	  	{
+  	  		int temp_next_pointer;
+  	  		BF_GetBlock(Open_Files[fileDesc]->fd, prev_pointer, block);
+  	  		data = BF_Block_GetData(block);
+  	  		memcpy(&temp_next_pointer, &data[BF_BLOCK_SIZE- sizeof(int)], sizeof(int));
+  	  		memcpy(&data[BF_BLOCK_SIZE- sizeof(int)], &temp,sizeof(int));
+  			  BF_Block_SetDirty(block);
+  	  		BF_UnpinBlock(block);
+  	  	}
+  	  	//Store the next_pointer
+  	  	if (temp_next_pointer!=-1)
+  	  	{
+  	  		next_pointer = temp_next_pointer;
+  	  	}
+  	  	//Create the new data block and initilize it
+  			BF_AllocateBlock(Open_Files[fileDesc]->fd, block);
+        data = BF_Block_GetData(block);
+  			data[0] = 'd';
+  			int counter_entry=0;
+  			memcpy(&data[1], &counter_entry, sizeof(int));
+  			//set first and last pointer to previous and next values
+  			memcpy(&data[sizeof(char)+sizeof(int)], &prev_pointer, sizeof(int));				//Initialize the prev pointer								
+  			memcpy(&data[BF_BLOCK_SIZE - sizeof(int)], &next_pointer, sizeof(int));				//Initialize the next pointer
+  			BF_Block_SetDirty(block);
+  			BF_UnpinBlock(block);
+  			//Update the conneciton with the next data block 
+  			if (next_pointer!=-1)
+  			{
+  				BF_GetBlock(Open_Files[fileDesc]->fd, next_pointer, block);
+  				data = BF_Block_GetData(block);
+  				memcpy(&data[sizeof(char)+sizeof(int)], &temp, sizeof(int));
+  				BF_Block_SetDirty(block);
+  				BF_UnpinBlock(block);
+  			}
+  		}
+  		else{
+        BF_UnpinBlock(block);
+        BF_Block_Destroy(&block);
+        return pointer_value;
+      }
       BF_UnpinBlock(block);
       BF_Block_Destroy(&block);
-      return pointer_value;
+      return temp;          //Return the block
     }
-    BF_Block_SetDirty(block);
-		BF_Block_Destroy(&block);
-
-		return temp;					//Return the block		
-
+    else{
+      while(pointer_value == -1 && i < counter){
+          m += sizeof(int) + Open_Files[fileDesc]->attrLength1;
+          memcpy(&pointer_value, &data[m], sizeof(int));
+          i++;
+      }
+    }
 	}
 	//Find the most left block for OpenScanIndex (NOT_EQUAL,LESS,LESS_OR_EQUAL)
 	else
@@ -400,10 +434,77 @@ int traverse(int fileDesc, int block_num,void* value1)
 		for (i=0;i<=counter;i++)
 		{
 			memcpy(&pointer_value, &data[m], sizeof(int));
-			if (pointer_value!=-1)
-				return pointer_value;
+			if (pointer_value!=-1){
+        break;
+      }
 			else
 				m+= sizeof(int) + Open_Files[fileDesc]->attrLength1;
 		}
 	}
+  BF_UnpinBlock(block);
+  BF_Block_Destroy(&block);
+  return pointer_value;
+
 }
+
+int op_function(void * value1,void *value2,char attrType,int attrLength,int op){
+  switch(op){
+    case 1:{
+      if(attrType == 'f'){
+        return !((*(float *)value1) == (*(float *)value2));
+      }
+      else if(attrType == 'i'){
+        return !((*(int *)value1) == (*(int *)value2));
+      }
+      else{
+        return (strcmp((char *)value1,(char *)value2) == 0?0:1);
+      }
+    }
+    case 2:{
+      if(attrType == 'f'){
+        return ((*(float *)value1) == (*(float *)value2));
+      }
+      else if(attrType == 'i'){
+        return ((*(int *)value1) == (*(int *)value2));
+      }
+      else{
+        return !strcmp((char *)value1,(char *)value2);
+      }
+    }
+    case 3:{
+      return compare(value1,value2,attrType,attrLength);
+    }
+    case 4:{
+      if(attrType == 'f'){
+        return !((*(float *)value1) > (*(float *)value2));
+      }
+      else if(attrType == 'i'){
+        return !((*(int *)value1) > (*(int *)value2));
+      }
+      else{
+        return (strcmp((char *)value1,(char *)value2) > 0?0:1);
+      }
+    }
+    case 5:{
+      return (compare(value1,value2,attrType,attrLength) && op_function(value1, value2, attrType,attrLength,1));
+    }
+    case 6:{
+      if(attrType == 'f'){
+        float t1 = *(float *)value1;
+        float t2 = *(float *)value2;
+        printf("%f >= %f -> %d\n",t1,t2,((t1 >= t2) == 1?0:1));
+        return ((t1 >= t2) == 1?0:1);
+      }
+      else if(attrType == 'i'){
+        int t1 = *(int *)value1;
+        int t2 = *(int *)value2;
+        printf("%d >= %d -> %d\n",t1,t2,((t1 >= t2) == 1?0:1));
+        return ((t1 >= t2) == 1?0:1);
+      }
+      else{
+        return (strcmp((char *)value1,(char *)value2) >= 0?0:1);
+      }
+    }
+  }
+}
+

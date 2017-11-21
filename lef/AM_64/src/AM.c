@@ -26,7 +26,10 @@ void AM_Init() {
   for(i=0;i<MAXSCANS;i++){
     Scan_Files[i] = NULL;                                                    //Initialize each pointert to NULL
   }
-  return;
+  Scan_Files[0] = (scan_files *)malloc(sizeof(scan_files));
+  int x = 1;
+  Scan_Files[0]->fd = x;
+  printf("%d\n",Scan_Files[0]->fd);
 }
 
 
@@ -224,7 +227,8 @@ int AM_InsertEntry(int fileDesc, void *value1, void *value2) {
   List * list = List_Create();                                                      //Create a list(Stack) for block's number
   loop++;
   List_Push(list,prev);
-  while((block_number = traverse(fileDesc,prev,value1)) != -1){
+  int op = -1;
+  while((block_number = traverse(fileDesc,prev,value1,&op)) != -1){
     prev = block_number;
     List_Push(list,prev);                                                   //Store the blocks number, in case of splitting
   }
@@ -274,10 +278,6 @@ int AM_OpenIndexScan(int fileDesc, int op, void *value) {
     AM_errno = 2;
     return AM_errno;                                       //Return error
   } 
-  scan_files * scan = (scan_files *)malloc(sizeof(scan_files));   //Allocate the scan info struct
-  scan->fd = fileDesc;
-  scan->op = op;
-  scan->value = value;
   void *temp = NULL;
   //If we have op in {EQAUL,GREATER_THAN,GREATER_THAN_OR_EQUAL} find the data_block which
   //the value could exist
@@ -285,15 +285,21 @@ int AM_OpenIndexScan(int fileDesc, int op, void *value) {
     temp = value;
   }
   int block_number;
+  int temp_op = op;
   int prev = Open_Files[fileDesc]->root_number;
-  while((block_number = traverse(fileDesc,prev,temp)) != -1){
+  while((block_number = traverse(fileDesc,prev,temp,&temp_op)) != -1){
     prev = block_number;
   }
-  scan->id_block = prev;
+  printf("ScanINDEX %d\n",Scan_Files[0]->fd);
   //Get scan record number miss
-
-  //Store scan info in scan structure
-  Scan_Files[i] = scan;
+  printf("AM_OpenIndex: block %d - pos %d\n",prev,temp_op);
+  Scan_Files[i] = (scan_files *)malloc(sizeof(scan_files));
+  //Scan_Files[i]->fd = fileDesc;
+  memcpy(&(Scan_Files[i]->id_block),&prev,sizeof(int));
+  memcpy(&(Scan_Files[i]->record_number),&temp_op,sizeof(int));
+  memcpy(&(Scan_Files[i]->op),&op,sizeof(int));
+  //memcpy(Scan_Files[i]->value,value,Open_Files[fileDesc]->attrLength1);
+  printf("%d\n",*(int *)value);
   return i;
 }
 
@@ -301,10 +307,71 @@ int AM_OpenIndexScan(int fileDesc, int op, void *value) {
 
 
 
-
+/*
 void *AM_FindNextEntry(int scanDesc) {
-  ;
-}
+  if (Scan_Files[scanDesc]->id_block != -1)             //ERROR
+  {
+    AM_errno = AME_EOF ; 
+    return NULL;
+  }
+  BF_Block *block;
+    BF_Block_Init(&block); 
+    BF_GetBlock(Open_Files[Scan_Files[scanDesc]->fd]->fd,Scan_Files[scanDesc]->id_block,block);
+    char *data;
+    void *value1 ;
+    int pos = Scan_Files[scanDesc]->record_number;
+    int m=sizeof(char)+2*sizeof(int);
+    int size;
+    int attrLength1 = Open_Files[Scan_Files[scanDesc]->fd]->attrLength1; 
+    int attrLength2 = Open_Files[Scan_Files[scanDesc]->fd]->attrLength2;
+    size = attrLength1 + attrLength2;
+    data = BF_Block_GetData(block);
+    int counter,new_block;
+  memcpy(&counter, &data[sizeof(char)], sizeof(int));
+    memcpy(value1,&data[m+size*pos+attrLength1],attrLength2);
+  int flag =0 ;
+  pos++;
+  while (!flag)
+  {
+
+    if(pos<counter)
+    {
+      if (!op_function(Scan_Files[scanDesc]->value,&data[m+size*pos], Open_Files[Scan_Files[scanDesc]->fd]->attrType1,attrLength1, Scan_Files[scanDesc]->op))
+      {
+        Scan_Files[scanDesc]->record_number++;
+        break;
+      }
+      else 
+      {
+        pos++;
+        switch(Scan_Files[scanDesc]->op)
+        {
+          case 1:                             // op -> " == "       
+          case 3:                             // op -> " > "
+          case 5:                             // op -> " >= "
+            Scan_Files[scanDesc]->id_block = -1;
+            break; 
+        }
+      }
+    }
+    else                           
+    {
+      memcpy(&new_block,&data[BF_BLOCK_SIZE-sizeof(int)],sizeof(int));
+      if (new_block!= -1)
+      {
+        Scan_Files[scanDesc]->id_block = new_block;
+        Scan_Files[scanDesc]->record_number = 0;
+      }
+      else
+      {
+        Scan_Files[scanDesc]->id_block = -1;
+        break;
+      }
+    }
+  };
+  BF_UnpinBlock(block);
+  BF_Block_Destroy(&block);
+}*/
 
 
 
@@ -379,7 +446,8 @@ void AM_Print(int fileDesc){
     printf("%d\n",temp);
   }
   int block_number;
-  while((block_number = traverse(fileDesc,prev,NULL)) != -1){
+  int op = -1;
+  while((block_number = traverse(fileDesc,prev,NULL,&op)) != -1){
     prev = block_number;                                          
   }
   while(prev != -1){

@@ -5,7 +5,6 @@
 #include "defn.h"
 
 
-
 int main(void){
 	AM_Init();
 	char name[40];
@@ -46,7 +45,14 @@ int main(void){
 	}
 
 	AM_Print(p);
+	v1 = 180;
 
+	AM_OpenIndexScan(p,1,(void *)&v1);
+	AM_OpenIndexScan(p,2,(void *)&v1);
+	AM_OpenIndexScan(p,3,(void *)&v1);
+	AM_OpenIndexScan(p,4,(void *)&v1);
+	AM_OpenIndexScan(p,5,(void *)&v1);
+	AM_OpenIndexScan(p,6,(void *)&v1);
 
 
 	if(AM_CloseIndex(p) != AME_OK){
