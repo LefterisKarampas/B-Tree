@@ -14,7 +14,7 @@
   }
 
 int main() {
-  int fd1, fd2, fd3;
+  int fd1, fd2, fd3, fd4;
   BF_Block *block;
 
   BF_Block_Init(&block);
@@ -54,27 +54,39 @@ int main() {
   }
 
   printf("Read Data From Files ...\n");
+  CALL_OR_DIE(BF_OpenFile("data1.db", &fd4));
   for (int i = 0; i < 1000; ++i) {
+
+    printf("Read Data From data1.db ...\n");
     CALL_OR_DIE(BF_GetBlock(fd1, i, block));
     data = BF_Block_GetData(block);
     printf("fileDesk = %d block = %d and data = %d\n", fd1, i, data[0]);
     CALL_OR_DIE(BF_UnpinBlock(block));
 
+    printf("Read Data From data2.db ...\n");
     CALL_OR_DIE(BF_GetBlock(fd2, i, block));
     data = BF_Block_GetData(block);
     printf("fileDesk = %d block = %d and data = %d\n", fd2, i, data[0]);
     CALL_OR_DIE(BF_UnpinBlock(block));
 
+    printf("Read Data From data3.db ...\n");
     CALL_OR_DIE(BF_GetBlock(fd3, i, block));
     data = BF_Block_GetData(block);
     printf("fileDesk = %d block = %d and data = %d\n", fd3, i, data[0]);
     CALL_OR_DIE(BF_UnpinBlock(block));
+
+    printf("Read Data From data1.db ...\n");
+    CALL_OR_DIE(BF_GetBlock(fd4, i, block));
+    data = BF_Block_GetData(block);
+    printf("fileDesk = %d block = %d and data = %d\n", fd4, i, data[0]);
+    CALL_OR_DIE(BF_UnpinBlock(block));
   }
 
   printf("Closing Files ...\n");
+  BF_CloseFile(fd1);
   BF_CloseFile(fd2);
-  BF_CloseFile(fd2);
-  BF_CloseFile(fd2);
+  BF_CloseFile(fd3);
+  BF_CloseFile(fd4);
   printf("Close BF ...\n");
   BF_Close();
 
