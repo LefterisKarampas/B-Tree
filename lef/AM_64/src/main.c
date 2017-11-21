@@ -35,10 +35,14 @@ int main(void){
 	 v2 = 1;
 	AM_InsertEntry(p,(void *)&v1,(void*)&v2);
 	int i;
-	for(i=-250;i<250;i++){
+	for(i=-1000;i<=1500;i++){
 		v1 = i;
 	 	v2 = 1;
 		AM_InsertEntry(p,(void *)&v1,(void*)&v2);
+		if(i==0){
+			v1 = -251;
+			AM_InsertEntry(p,(void *)&v1,(void*)&v2);
+		}
 	}
 
 	AM_Print(p);

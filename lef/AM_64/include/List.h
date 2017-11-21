@@ -12,6 +12,6 @@ List * List_Create();
 int List_Push(List *,int);
 int List_Pop(List *);
 void List_Destroy(List *);
-
+void List_Print(List *);
 
 #endif

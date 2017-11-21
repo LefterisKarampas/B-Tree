@@ -32,7 +32,7 @@ int List_Push(List *list,int pointer){
 	return 0;
 }
 
-
+#include <stdio.h>
 //Pop the first element of the List
 int List_Pop(List *list){
 	Node * temp;
@@ -45,4 +45,12 @@ int List_Pop(List *list){
 		return p;
 	}
 	return -1;
+}
+
+void List_Print(List *list){
+	Node * temp = *list;
+	while(temp){
+		printf("%d->\n",temp->block);
+		temp = temp->next;
+	}
 }

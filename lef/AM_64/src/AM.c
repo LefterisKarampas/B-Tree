@@ -164,12 +164,10 @@ int AM_OpenIndex (char *fileName) {
       memcpy(&(Open_Files[i]->attrType1),&data[m],sizeof(char));
       m+=1;
       memcpy(&(Open_Files[i]->attrLength1),&data[m],sizeof(int));
-      printf("%d\n",Open_Files[i]->attrLength1);
       m+=sizeof(int);
       memcpy(&(Open_Files[i]->attrType2),&data[m],sizeof(char));
       m+=1;
       memcpy(&(Open_Files[i]->attrLength2),&data[m],sizeof(int));
-      printf("%d\n",Open_Files[i]->attrLength2);
       m+=sizeof(int);
       memcpy(&(Open_Files[i]->root_number),&data[m],sizeof(int));
       BF_UnpinBlock(block);                                                                       
@@ -225,6 +223,7 @@ int AM_InsertEntry(int fileDesc, void *value1, void *value2) {
   //Get the data block
   List * list = List_Create();                                                      //Create a list(Stack) for block's number
   loop++;
+  List_Push(list,prev);
   while((block_number = traverse(fileDesc,prev,value1)) != -1){
     prev = block_number;
     List_Push(list,prev);                                                   //Store the blocks number, in case of splitting
@@ -233,23 +232,22 @@ int AM_InsertEntry(int fileDesc, void *value1, void *value2) {
   BF_GetBlock(Open_Files[fileDesc]->fd,prev,block);                                    //Read block
   char * data = BF_Block_GetData(block);
   //Insert new entry and sort it
-  printf("Sort\n");
   while(sort(fileDesc,prev,value1,value2) < 0){                               //If there is not free space
-    printf("Split %d\n",prev);
     Split_Data * split_data = split(fileDesc,block,data,prev,value1,value2);        //SPLIT
-    value2 = split_data->pointer;                                                   //value2 -> new pointer to index block 
+    int temp_value2 = *(split_data->pointer);                                                   //value2 -> new pointer to index block 
     value1 = split_data->value;                                                     //value1 -> new value for insertion in index block
+    value2 = &temp_value2;
     int x;
     x = List_Pop(list);
     if(x == -1){                                                                    //Split root
-      Initialize_Root(fileDesc,split_data->value,prev,*((int*)split_data->pointer));
+      x = Initialize_Root(fileDesc,split_data->value,prev,*((int*)split_data->pointer));
       free(split_data);
       break;
     }
     prev = x;
-    BF_UnpinBlock(block);                                                             //Unpin Block
+    BF_UnpinBlock(block);
     BF_GetBlock(Open_Files[fileDesc]->fd,prev,block);                                    //Read block
-    data = BF_Block_GetData(block);
+    data = BF_Block_GetData(block);                                                   
     free(split_data);
   }
   List_Destroy(list);
@@ -360,20 +358,42 @@ void AM_Close() {
 
 void AM_Print(int fileDesc){
   BF_Block *block;
-  BF_Block_Init(&block);                                                            //Initialize Block
+  BF_Block_Init(&block);  
+  char *data;
+  int i;
+  int *counter = malloc(sizeof(int));                                          //Initialize Block
   int prev = Open_Files[fileDesc]->root_number;
+  BF_GetBlock(Open_Files[fileDesc]->fd,prev,block);
+  data = BF_Block_GetData(block);
+  printf("Root %d:\n",prev);
+  memcpy(counter,&(data[1]),sizeof(int));
+  for(i=0;i<*counter;i++){
+    int temp;
+    if(i == 0){
+      memcpy(&temp,&(data[sizeof(char)+sizeof(int)]),sizeof(int));
+      printf("\t%d\n",temp);
+    }
+    memcpy(&temp,&(data[sizeof(char)+2*sizeof(int)+2*sizeof(int)*i]),sizeof(int));
+    printf("\t%d. %d - ",i,temp);
+    memcpy(&temp,&(data[sizeof(char)+2*sizeof(int)+2*sizeof(int)*i+sizeof(int)]),sizeof(int));
+    printf("%d\n",temp);
+  }
   int block_number;
   while((block_number = traverse(fileDesc,prev,NULL)) != -1){
     prev = block_number;                                          
   }
-  BF_GetBlock(Open_Files[fileDesc]->fd,prev,block);
-  char *data = BF_Block_GetData(block);
-  int i;
-  int *counter = malloc(sizeof(int));
-  printf("HERE\n");
-  for(i=0;i<10;i++){
-    int temp;
-    memcpy(&temp,&(data[sizeof(char)+2*sizeof(int)]),sizeof(int));
-    printf("%d < ",temp);
+  while(prev != -1){
+    BF_GetBlock(Open_Files[fileDesc]->fd,prev,block);
+    data = BF_Block_GetData(block);
+    printf("Block %d:\n",prev);
+    memcpy(counter,&(data[1]),sizeof(int));
+    for(i=0;i<*counter;i++){
+      int temp;
+      memcpy(&temp,&(data[sizeof(char)+2*sizeof(int)+2*sizeof(int)*i]),sizeof(int));
+      printf("\t%d. %d - ",i,temp);
+      memcpy(&temp,&(data[sizeof(char)+2*sizeof(int)+2*sizeof(int)*i+sizeof(int)]),sizeof(int));
+      printf("%d\n",temp);
+    }
+    memcpy(&prev,&(data[BF_BLOCK_SIZE-sizeof(int)]),sizeof(int));
   }
 }

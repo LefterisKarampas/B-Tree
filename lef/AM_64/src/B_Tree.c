@@ -43,6 +43,7 @@ int Initialize_Root(int fileDesc,void * value1,int p0,int p1){
   BF_Block_SetDirty(block);
   BF_UnpinBlock(block);
   BF_Block_Destroy(&block);
+  return block_num;
 }
 
 
@@ -84,11 +85,11 @@ int sort(int fileDesc,int block_num,void *value1,void *value2){
   char* data;
   BF_GetBlock(Open_Files[fileDesc]->fd,block_num,block);                                        //Read block
   data = BF_Block_GetData(block);
+  char id = data[0];
   int attrLength1 = Open_Files[fileDesc]->attrLength1;                       //Hold attr1 length
   int attrLength2;                                                        //Hold attr2 length
   int counter;                                           //Get the counter of entries
   memcpy(&counter,&(data[sizeof(char)]),sizeof(int));
-  char id = data[0];
   if(id == 'd'){
     attrLength2 = Open_Files[fileDesc]->attrLength2;
     if(counter >= ((BF_BLOCK_SIZE - 3*sizeof(int)-sizeof(char))/(attrLength1+attrLength2)))
@@ -107,7 +108,7 @@ int sort(int fileDesc,int block_num,void *value1,void *value2){
     void * temp;
     if(Open_Files[fileDesc]->attrType1 == 'i'){
       temp = (int *)malloc(Open_Files[fileDesc]->attrLength1);
-    }else if(Open_Files[fileDesc]->attrType1 == 'i'){
+    }else if(Open_Files[fileDesc]->attrType1 == 'f'){
      temp = (float *)malloc(Open_Files[fileDesc]->attrLength1);
     }
     else{
@@ -116,27 +117,27 @@ int sort(int fileDesc,int block_num,void *value1,void *value2){
     memcpy(temp,&(data[m+(attrLength1+attrLength2)*i]),sizeof(attrLength1));
     //Compare the new entry with the current, if new < current then shift right the current
     if(!compare(value1,temp,Open_Files[fileDesc]->attrType1,attrLength1)){ 
-      memcpy(&data[m+(attrLength1+attrLength2)*(i+1)],(char *)temp,attrLength1);
+      memcpy(&data[m+(attrLength1+attrLength2)*(i+1)],temp,attrLength1);
       temp = &data[m+(attrLength1+attrLength2)*i+attrLength1];
-      memcpy(&data[m+(attrLength1+attrLength2)*(i+1)+attrLength1],(char *)temp,attrLength2);
+      memcpy(&data[m+(attrLength1+attrLength2)*(i+1)+attrLength1],temp,attrLength2);
     }
     //Else insert the new entry, right of the current
     else{
-      memcpy(&data[m+(attrLength1+attrLength2)*(i+1)],(char *)value1,attrLength1);
-      memcpy(&data[m+(attrLength1+attrLength2)*(i+1)+attrLength1],(char *)value2,attrLength2);
+      memcpy(&data[m+(attrLength1+attrLength2)*(i+1)],value1,attrLength1);
+      memcpy(&data[m+(attrLength1+attrLength2)*(i+1)+attrLength1],value2,attrLength2);
       flag = 1;
       break;
     }
   }
   //If new entry is the min key then insert it as first
-  if(flag = 0){
-    memcpy(&data[m],(char *)value1,attrLength1);
-    memcpy(&data[m+attrLength1],(char *)value2,attrLength2);
+  if(flag == 0){
+    memcpy(&(data[m]),value1,attrLength1);
+    memcpy(&(data[m+attrLength1]),value2,attrLength2);
   }
   counter = counter + 1;
   memcpy(&data[1],&counter,sizeof(int));                                             //Increase by 1 the counter
   BF_Block_SetDirty(block);                                                         //Set block Dirty
-  //BF_Block_Destroy(&block);
+  BF_Block_Destroy(&block);
   return 0;
 }
 
@@ -160,18 +161,17 @@ Split_Data * split(int fileDesc,BF_Block * block,char *data,int block_num,void *
   int *counter = (int *)&data[1];
   //Split data block
   int mid,mod,size,m;
-  int temp_next_pointer;                                                            //Pointer to next before split
+  int temp_next_pointer = -1;                                                            //Pointer to next before split
   int attrLength2;
   int attrLength1 = Open_Files[fileDesc]->attrLength1;
-  mid = (*counter)/2 ;                                               //Find the number of the entries that move to new block
-  if(((*counter) % 2 != 0)){
+  mid = ((*counter)+1)/2 ;                                               //Find the number of the entries that move to new block
+  if((((*counter)+1) % 2 != 0)){
     mid+=1;
   }
   m = sizeof(char) + 2*sizeof(int);
   //Split data block
   if(data[0] == 'd'){
     attrLength2 = Open_Files[fileDesc]->attrLength2;
-    size = attrLength1 + attrLength2;
     memcpy(&temp_next_pointer,&data[BF_BLOCK_SIZE-sizeof(int)],sizeof(int));        //Read the pointer to next before split
     memcpy(&data[BF_BLOCK_SIZE-sizeof(int)],&new_block,sizeof(int));                //Update pointer to next
     memcpy(&data2[sizeof(char)+sizeof(int)],&block_num,sizeof(int));                //Update pointer to prev
@@ -180,64 +180,95 @@ Split_Data * split(int fileDesc,BF_Block * block,char *data,int block_num,void *
   //Split index block
   else{
     attrLength2 = sizeof(int);
-    size = attrLength1 + attrLength2;
   }
-  mod = (*counter) - mid;
-  memcpy(&data2[1],&mid,sizeof(int));                                               //Update the counter to new block
-  memcpy(&data[1],&mod,sizeof(int));                                                //Update the counter to old block
+  size = attrLength1 + attrLength2;
+  mod = (*counter)+1 - mid;
   int i;
   int j = mid-1;
-  if(data[0] == 'i'){
-    j--;
-  }
   int flag = 0;
   int null_pointer = -1;
   //From the end until the mid, move the entries to new block from the end
-  for(i = (*counter)-1;i>=mod;i--){
-    //If new value is greater than current, move the new to other block
-    if(!flag && compare(value1,&data[m+i*size],Open_Files[fileDesc]->attrType1,attrLength1)){
-      memcpy(&data2[m+j*size],value1,Open_Files[fileDesc]->attrLength1);                        //Copy new key value
-      memcpy(&data2[m+j*size+attrLength1],value2,attrLength2);                                 
-      flag = 1;
-    }
-    //If new value is less than current, move current to other block
-    else{
-      memcpy(&data2[m+j*size],&data[m+i*size],attrLength1);                                     //Copy current key value
-      memcpy(&data2[m+j*size+attrLength1],&data[m+i*size+attrLength1],attrLength2);
-      //Each key-pointer has moved to new block, set the old pointer to Null
-      if(data[0] == 'i'){
-        memcpy(&data[m+i*size+attrLength1],&null_pointer,attrLength2);
+  if(data[0] == 'd'){
+    for(i = (*counter)-1;i>=mod;){
+      //If new value is greater than current, move the new to other block
+      if(!flag && compare(value1,&(data[m+i*size]),Open_Files[fileDesc]->attrType1,attrLength1)){
+        memcpy(&data2[m+j*size],value1,Open_Files[fileDesc]->attrLength1);                        //Copy new key value
+        memcpy(&data2[m+j*size+attrLength1],value2,attrLength2);                                 
+        flag = 1;
       }
+      //If new value is less than current, move current to other block
+      else{
+        memcpy(&data2[m+j*size],&data[m+i*size],attrLength1);                                     //Copy current key value
+        memcpy(&data2[m+j*size+attrLength1],&data[m+i*size+attrLength1],attrLength2);
+        //Each key-pointer has moved to new block, set the old pointer to Null
+        i--;
+      }
+      j--;
     }
-    j--;
+    memcpy(&data2[1],&mid,sizeof(int));                                               //Update the counter to new block
+    memcpy(&data[1],&mod,sizeof(int));                                                //Update the counter to old block
   }
+  else{
+    if(mid > mod){
+      j--;
+    }
+    for(i = (*counter)-1;i>=mid;){
+      //If new value is greater than current, move the new to other block
+      if(!flag && compare(value1,&(data[m+i*size]),Open_Files[fileDesc]->attrType1,attrLength1)){
+        memcpy(&data2[m+j*size],value1,Open_Files[fileDesc]->attrLength1);                        //Copy new key value
+        memcpy(&data2[m+j*size+attrLength1],value2,attrLength2);                                 
+        flag = 1;
+      }
+      //If new value is less than current, move current to other block
+      else{
+        memcpy(&data2[m+j*size],&data[m+i*size],attrLength1);                                     //Copy current key value
+        memcpy(&data2[m+j*size+attrLength1],&data[m+i*size+attrLength1],attrLength2);
+        //Each key-pointer has moved to new block, set the old pointer to Null
+        i--;
+      }
+      j--;
+    }
+    memcpy(&data2[1],&mod,sizeof(int));                                               //Update the counter to new block
+    memcpy(&data[1],&mid,sizeof(int));                                                //Update the counter to old block
+  }
+
   //If new value has not inserted yet (it belongs to old block), sort the old block
   if(flag == 0){
     sort(fileDesc,block_num,value1,value2);
     memcpy(&data[sizeof(char)],&mod,sizeof(int));                          
   }
+
   Split_Data * split_data = (Split_Data *)malloc(sizeof(Split_Data));
   if(Open_Files[fileDesc]->attrType1 == 'i'){
-      split_data->value = (int *)malloc(Open_Files[fileDesc]->attrLength1);
-    }else if(Open_Files[fileDesc]->attrType1 == 'i'){
-     split_data->value = (float *)malloc(Open_Files[fileDesc]->attrLength1);
-    }
-    else{
-     split_data->value = (char *)malloc(Open_Files[fileDesc]->attrLength1);
-    }       
+    split_data->value = (int *)malloc(Open_Files[fileDesc]->attrLength1);
+  }
+  else if(Open_Files[fileDesc]->attrType1 == 'i'){
+   split_data->value = (float *)malloc(Open_Files[fileDesc]->attrLength1);
+  }
+  else{
+   split_data->value = (char *)malloc(Open_Files[fileDesc]->attrLength1);
+  }       
   split_data->pointer = &new_block;
   if(data[0] == 'd'){
     memcpy(split_data->value,&(data2[m]),attrLength1);
   }
   else{
-    memcpy(split_data->value,&data[m+mod*size],sizeof(attrLength1));                      //Get the key which has to go up
-    memcpy(&data2[sizeof(char)+sizeof(int)],&data[m+mod*size+attrLength1],sizeof(int));   //Relocate the pointer
-    memcpy(&data[m+mod*size+attrLength1],&null_pointer,attrLength2);
+    if(mid > mod){
+      memcpy(split_data->value,&data[m+mod*size],attrLength1);                      //Get the key which has to go up
+       memcpy(&data2[sizeof(char)+sizeof(int)],&data[m+mod*size+attrLength1],sizeof(int));   //Relocate the pointer
+      memcpy(&data[m+mod*size+attrLength1],&null_pointer,attrLength2);
+    }
+    else{
+      memcpy(split_data->value,&data[m+(mod-1)*size],attrLength1);
+      memcpy(&data2[sizeof(char)+sizeof(int)],&data[m+(mod-1)*size+attrLength1],sizeof(int));   //Relocate the pointer
+      memcpy(&data[m+(mod-1)*size+attrLength1],&null_pointer,attrLength2);
+    }
   }
+
   BF_Block_SetDirty(block);                                                         //Set old block Dirty
   BF_Block_SetDirty(block2);                                                         //Set new block Dirty
-  BF_UnpinBlock(block2);                                                             //Unpin new Block
-  if(temp_next_pointer != -1){
+  BF_UnpinBlock(block2);                                                  //Unpin new Block
+  if((data[0] == 'd') && (temp_next_pointer != -1)){
     BF_GetBlock(Open_Files[fileDesc]->fd,temp_next_pointer,block2);                   //Read block
     data2 = BF_Block_GetData(block);
     memcpy(&data2[sizeof(char)+sizeof(int)],&new_block,sizeof(int));
