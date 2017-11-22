@@ -36,7 +36,7 @@ int main(void){
 	int i;
 	for(i=-1000;i<=1500;i++){
 		v1 = i;
-	 	v2 = 1;
+	 	v2 = i;
 		AM_InsertEntry(p,(void *)&v1,(void*)&v2);
 		if(i==0){
 			v1 = -251;
@@ -47,19 +47,24 @@ int main(void){
 	AM_Print(p);
 	v1 = 180;
 
-	AM_OpenIndexScan(p,1,(void *)&v1);
-	AM_OpenIndexScan(p,2,(void *)&v1);
+	i = AM_OpenIndexScan(p,1,(void *)&v1);
+	int * t;
+	while((t = (int *)AM_FindNextEntry(i))){
+		printf("EntryValue: %d\n",*t);
+	}
+	/*AM_OpenIndexScan(p,2,(void *)&v1);
 	AM_OpenIndexScan(p,3,(void *)&v1);
 	AM_OpenIndexScan(p,4,(void *)&v1);
 	AM_OpenIndexScan(p,5,(void *)&v1);
-	AM_OpenIndexScan(p,6,(void *)&v1);
+	AM_OpenIndexScan(p,6,(void *)&v1);*/
+
 
 
 	if(AM_CloseIndex(p) != AME_OK){
 		fprintf(stderr,"%s\n","CLOSE_INDEX");
 		exit(1);
 	}
-	AM_DestroyIndex(name);
+	//AM_DestroyIndex(name);
 	AM_Close();
 	return 0;
 }

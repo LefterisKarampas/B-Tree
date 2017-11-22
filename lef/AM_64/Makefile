@@ -24,5 +24,5 @@ bf_main3:
 
 main:
 	@echo " Compile main ...";
-	gcc -I ./include/ -L ./lib/ -Wl,-rpath,./lib/ ./src/main.c ./src/AM.c ./src/List.c ./src/B_Tree.c -lbf -o ./build/main -O2
+	gcc -I ./include/ -L ./lib/ -Wl,-rpath,./lib/ ./src/main.c ./src/AM.c ./src/List.c ./src/B_Tree.c -lbf -o ./build/main
 
