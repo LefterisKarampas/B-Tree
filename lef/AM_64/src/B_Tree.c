@@ -310,10 +310,18 @@ int traverse(int fileDesc, int block_num,void* value1,int *op)
         }
         break;
       }
-      case 4:
+      case 4:{
+        for(i=0;i<counter;i++){
+          if((!op_function(value1,&data[m+size*i],Open_Files[fileDesc]->attrType1,Open_Files[fileDesc]->attrLength1,3))){
+            *op = i;
+            break;
+          }
+        }
+        break;
+      }
       case 6:{
         for(i=0;i<counter;i++){
-          if((op_function(value1,&data[m+size*i],Open_Files[fileDesc]->attrType1,Open_Files[fileDesc]->attrLength1,*op))){
+          if((!op_function(value1,&data[m+size*i],Open_Files[fileDesc]->attrType1,Open_Files[fileDesc]->attrLength1,1))){
             *op = i;
             break;
           }
@@ -321,8 +329,13 @@ int traverse(int fileDesc, int block_num,void* value1,int *op)
         break;
       }
       default:{
-        *op = 0;
+        i = 0;
+        *op = i;
+        break;
       }
+    }
+    if(i == counter){
+      *op = -1;
     }
     BF_UnpinBlock(block);
     BF_Block_Destroy(&block);
@@ -492,13 +505,11 @@ int op_function(void * value1,void *value2,char attrType,int attrLength,int op){
       if(attrType == 'f'){
         float t1 = *(float *)value1;
         float t2 = *(float *)value2;
-        printf("%f >= %f -> %d\n",t1,t2,((t1 >= t2) == 1?0:1));
         return ((t1 >= t2) == 1?0:1);
       }
       else if(attrType == 'i'){
         int t1 = *(int *)value1;
         int t2 = *(int *)value2;
-        printf("%d >= %d -> %d\n",t1,t2,((t1 >= t2) == 1?0:1));
         return ((t1 >= t2) == 1?0:1);
       }
       else{

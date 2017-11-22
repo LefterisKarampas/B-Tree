@@ -333,48 +333,71 @@ void *AM_FindNextEntry(int scanDesc) {
   memcpy(value1,&data[m+size*pos+attrLength1],attrLength2);
   int flag =0 ;
   pos++;
-  while (!flag)
+  while(pos<counter)
   {
-
-    if(pos<counter)
-    {
-      if (op_function(Scan_Files[scanDesc]->value,&data[m+size*pos], Open_Files[Scan_Files[scanDesc]->fd]->attrType1,attrLength1, Scan_Files[scanDesc]->op))
-      {
-        Scan_Files[scanDesc]->record_number++;
-        break;
-      }
-      else 
-      {
-        pos++;
-        switch(Scan_Files[scanDesc]->op)
-        {
-          case 1:                             // op -> " == "       
-          case 3:                             // op -> " > "
-          case 5:                             // op -> " >= "
-            Scan_Files[scanDesc]->id_block = -1;
-            break; 
+    flag = 0;
+    int result;
+    switch(Scan_Files[scanDesc]->op){
+      case 1:{
+        result = op_function(Scan_Files[scanDesc]->value,&data[m+size*pos], Open_Files[Scan_Files[scanDesc]->fd]->attrType1,attrLength1, Scan_Files[scanDesc]->op);
+        if(result){
+          Scan_Files[scanDesc]->id_block = -1;
         }
+        flag = 1;
+        break;
       }
-    }
-    else                           
-    {
-      memcpy(&new_block,&data[BF_BLOCK_SIZE-sizeof(int)],sizeof(int));
-      if (new_block!= -1)
-      {
-        Scan_Files[scanDesc]->id_block = new_block;
-        Scan_Files[scanDesc]->record_number = 0;
-        BF_UnpinBlock(block);
-        BF_GetBlock(Open_Files[Scan_Files[scanDesc]->fd]->fd,Scan_Files[scanDesc]->id_block,block);
-        data = BF_Block_GetData(block);
-
+      case 2:{
+        result = op_function(Scan_Files[scanDesc]->value,&data[m+size*pos], Open_Files[Scan_Files[scanDesc]->fd]->attrType1,attrLength1, Scan_Files[scanDesc]->op);
+        if(!result){
+          flag = 1;
+        }
+        break;
       }
-      else
-      {
-        Scan_Files[scanDesc]->id_block = -1;
+      case 3:{
+        result = op_function(Scan_Files[scanDesc]->value,&data[m+size*pos], Open_Files[Scan_Files[scanDesc]->fd]->attrType1,attrLength1, 4);
+        if(result){
+          Scan_Files[scanDesc]->id_block = -1;
+        }
+        flag = 1;
+        break;
+      }
+      case 4:
+      case 6:{
+        flag =1;
+        break;
+      }
+      case 5:{
+        result = op_function(Scan_Files[scanDesc]->value,&data[m+size*pos], Open_Files[Scan_Files[scanDesc]->fd]->attrType1,attrLength1, 6);
+        if(result){
+          Scan_Files[scanDesc]->id_block = -1;
+        }
+        flag = 1;
         break;
       }
     }
-  };
+    if(flag == 1){
+      break;
+    }
+    pos++;
+  }
+  if(flag == 0)                           
+  {
+    printf("Change block \n");
+    memcpy(&new_block,&data[BF_BLOCK_SIZE-sizeof(int)],sizeof(int));
+    if (new_block!= -1)
+    {
+      Scan_Files[scanDesc]->id_block = new_block;
+      Scan_Files[scanDesc]->record_number = 0;
+    }
+    else
+    {
+      Scan_Files[scanDesc]->id_block = -1;
+    }
+  }
+  else{
+    printf("Go next\n");
+    Scan_Files[scanDesc]->record_number = pos;
+  }
   BF_UnpinBlock(block);
   BF_Block_Destroy(&block);
   return value1;

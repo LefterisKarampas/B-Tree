@@ -43,11 +43,13 @@ int main(void){
 			AM_InsertEntry(p,(void *)&v1,(void*)&v2);
 		}
 	}
-
+	v1 = 180;
+	v2 = 180;
+	AM_InsertEntry(p,(void *)&v1,(void*)&v2);
 	AM_Print(p);
 	v1 = 180;
 
-	i = AM_OpenIndexScan(p,1,(void *)&v1);
+	i = AM_OpenIndexScan(p,2,(void *)&v1);
 	int * t;
 	while((t = (int *)AM_FindNextEntry(i))){
 		printf("EntryValue: %d\n",*t);
