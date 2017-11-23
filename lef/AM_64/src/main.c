@@ -22,32 +22,57 @@ int main(void){
 
 
 	int v1 = 10;
-	int v2 = 1;
+	int v2 = 10;
 	AM_InsertEntry(p,(void *)&v1,(void*)&v2);
 	 v1 = 30;
-	 v2 = 1;
+	 v2 = 30;
 	AM_InsertEntry(p,(void *)&v1,(void*)&v2);
 	 v1 = 20;
-	 v2 = 1;
+	 v2 = 20;
 	AM_InsertEntry(p,(void *)&v1,(void*)&v2);
 	v1 = 50;
-	 v2 = 1;
+	 v2 = 50;
 	AM_InsertEntry(p,(void *)&v1,(void*)&v2);
 	int i;
-	for(i=-1000;i<=1500;i++){
+	for(i=-1000;i<=1800;i++){
 		v1 = i;
 	 	v2 = i;
 		AM_InsertEntry(p,(void *)&v1,(void*)&v2);
 		if(i==0){
 			v1 = -251;
+			v2 = -251;
+			AM_InsertEntry(p,(void *)&v1,(void*)&v2);
+		}
+	}/*
+	for(i=2500;i>1500;i--){
+		v1 = i;
+	 	v2 = i;
+		AM_InsertEntry(p,(void *)&v1,(void*)&v2);
+		if(i==0){
+			v1 = -251;
+			v2 = -251;
 			AM_InsertEntry(p,(void *)&v1,(void*)&v2);
 		}
 	}
+	for(i=3000;i>-18;i--){
+		v1 = i;
+	 	v2 = i;
+		AM_InsertEntry(p,(void *)&v1,(void*)&v2);
+		if(i==0){
+			v1 = -251;
+			v2 = -251;
+			AM_InsertEntry(p,(void *)&v1,(void*)&v2);
+		}
+	}
+	for(i=0;i<64;i++){
+		v1 = 15;
+		v2 = 15;
+		AM_InsertEntry(p,(void *)&v1,(void*)&v2);
+	}*/
 	v1 = 180;
 	v2 = 180;
 	AM_InsertEntry(p,(void *)&v1,(void*)&v2);
 	AM_Print(p);
-	v1 = 180;
 
 	i = AM_OpenIndexScan(p,2,(void *)&v1);
 	int * t;
