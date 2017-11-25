@@ -303,7 +303,7 @@ int AM_OpenIndexScan(int fileDesc, int op, void *value) {
   memcpy(&(Scan_Files[i]->op),&op,sizeof(int));
   if(Open_Files[fileDesc]->attrType1 == 'i'){
     Scan_Files[i]->value = (int *)malloc(Open_Files[fileDesc]->attrLength1);
-  }else if(Open_Files[fileDesc]->attrType1 == 'i'){
+  }else if(Open_Files[fileDesc]->attrType1 == 'f'){
     Scan_Files[i]->value = (float *)malloc(Open_Files[fileDesc]->attrLength1);
   }
   else{
