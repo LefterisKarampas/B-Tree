@@ -111,7 +111,6 @@ int main() {
 		sprintf(errStr, "Error in AM_CreateIndex called on %s \n", empDname);
 		AM_PrintError(errStr);
 	}
-
 	/********************************************************************************
 	 *  ¶νοιγμα των τεσσάρων ΑΚ (με σκοπό την εισαγωγή εγγραφών)                    *
 	 ********************************************************************************/
@@ -177,7 +176,6 @@ int main() {
 	strcpy(edname, "TYRIA");
 	insertEntries(eNentry, eAentry, eSentry, eDentry, ename, eage, esal,
 			edname, ++recordid);
-
 	/* -----------------------------------------------------------------------------*/
 
 	strcpy(ename, "KYRIAKIDHS GRHGORIOS");
@@ -195,7 +193,6 @@ int main() {
 	strcpy(edname, "KREATA");
 	insertEntries(eNentry, eAentry, eSentry, eDentry, ename, eage, esal,
 			edname, ++recordid);
-
 	/* -----------------------------------------------------------------------------*/
 
 	strcpy(ename, "APELPISIADOY IWSHFINA");
@@ -213,7 +210,6 @@ int main() {
 	strcpy(edname, "TYRIA");
 	insertEntries(eNentry, eAentry, eSentry, eDentry, ename, eage, esal,
 			edname, ++recordid);
-
 	/* -----------------------------------------------------------------------------*/
 
 	strcpy(ename, "KOYROPETROGLOY KWSTAS");
@@ -1042,7 +1038,6 @@ int main() {
 
 	/* -----------------------------------------------------------------------------*/
 	AM_Print(eNentry);
-	exit(1);
 	/********************************************************************************
 	 *  Τέλος των εισαγωγών στα τέσσερα αρχεία ΒΔ                                   *
 	 ********************************************************************************/

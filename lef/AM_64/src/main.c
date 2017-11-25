@@ -9,7 +9,7 @@ int main(void){
 	AM_Init();
 	char name[40];
 	strcpy(name,"lef");
-	if(AM_CreateIndex(name,INTEGER,sizeof(int),INTEGER,sizeof(int)) != AME_OK){
+	if(AM_CreateIndex(name,STRING,10,INTEGER,sizeof(int)) != AME_OK){
 		fprintf(stderr,"%s\n","CREATE_INDEX");
 		exit(1);
 	}
@@ -20,30 +20,32 @@ int main(void){
 	}
 
 
-
-	int v1 = 10;
+	char v1[10];
+	sprintf(v1,"%d",10);
 	int v2 = 10;
 	AM_InsertEntry(p,(void *)&v1,(void*)&v2);
-	 v1 = 30;
+	 sprintf(v1,"%d",20);
 	 v2 = 30;
 	AM_InsertEntry(p,(void *)&v1,(void*)&v2);
-	 v1 = 20;
+	 sprintf(v1,"%d",30);
 	 v2 = 20;
 	AM_InsertEntry(p,(void *)&v1,(void*)&v2);
-	v1 = 50;
+	sprintf(v1,"%d",50);
 	 v2 = 50;
 	AM_InsertEntry(p,(void *)&v1,(void*)&v2);
 	int i;
-	for(i=-1000;i<=1800;i++){
-		v1 = i;
+	for(i=-1000;i<=400;i++){
+		sprintf(v1,"%d",i);
 	 	v2 = i;
 		AM_InsertEntry(p,(void *)&v1,(void*)&v2);
 		if(i==0){
-			v1 = -251;
+			sprintf(v1,"%d",-251);
 			v2 = -251;
 			AM_InsertEntry(p,(void *)&v1,(void*)&v2);
 		}
-	}/*
+	}
+	//exit(1);
+	/*
 	for(i=2500;i>1500;i--){
 		v1 = i;
 	 	v2 = i;
@@ -69,11 +71,12 @@ int main(void){
 		v2 = 15;
 		AM_InsertEntry(p,(void *)&v1,(void*)&v2);
 	}*/
-	v1 = 180;
+	sprintf(v1,"%d",180);
 	v2 = 180;
 	AM_InsertEntry(p,(void *)&v1,(void*)&v2);
+	//exit(1);
 	AM_Print(p);
-
+	//exit(1);
 	i = AM_OpenIndexScan(p,2,(void *)&v1);
 	int * t;
 	while((t = (int *)AM_FindNextEntry(i))){

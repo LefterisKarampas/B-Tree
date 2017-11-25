@@ -235,7 +235,6 @@ int AM_InsertEntry(int fileDesc, void *value1, void *value2) {
   char * data = BF_Block_GetData(block);
   //Insert new entry and sort it
   while(sort(fileDesc,prev,value1,value2) < 0){                               //If there is not free space
-    printf("Split\n");
     Split_Data * split_data = split(fileDesc,block,data,prev,value1,value2);        //SPLIT
     int temp_value2 = *(split_data->pointer);                                       //value2 -> new pointer to index block 
     strncpy(value1,split_data->value,Open_Files[fileDesc]->attrLength1);             //value1 -> new value for insertion in index block
@@ -244,7 +243,7 @@ int AM_InsertEntry(int fileDesc, void *value1, void *value2) {
     x = List_Pop(list);
     if(x == -1){                                                                    //Split root
       x = Initialize_Root(fileDesc,split_data->value,prev,*((int*)split_data->pointer));
-      free(split_data);
+      //free(split_data);
       break;
     }
     prev = x;
@@ -290,7 +289,6 @@ int AM_OpenIndexScan(int fileDesc, int op, void *value) {
     prev = block_number;
   }
   //Get scan record number miss
-  printf("AM_OpenIndex: block %d - pos %d\n",prev,temp_op);
   Scan_Files[i] = (scan_files *)malloc(sizeof(scan_files));
   Scan_Files[i]->fd = fileDesc;
   if(temp_op == -1){
@@ -400,7 +398,6 @@ void *AM_FindNextEntry(int scanDesc) {
   }
   if(flag == 0)                           
   {
-    printf("Change block \n");
     memcpy(&new_block,&data[BF_BLOCK_SIZE-sizeof(int)],sizeof(int));
     if (new_block!= -1)
     {
@@ -413,7 +410,6 @@ void *AM_FindNextEntry(int scanDesc) {
     }
   }
   else{
-    printf("Go next\n");
     Scan_Files[scanDesc]->record_number = pos;
   }
   BF_UnpinBlock(block);
@@ -535,7 +531,7 @@ void AM_Print(int fileDesc){
       for(i=0;i<*counter;i++){
         int temp;
         char temp1[Open_Files[fileDesc]->attrLength1];
-        memcpy(temp1,&(data[sizeof(char)+2*sizeof(int)+2*sizeof(int)*i]),sizeof(int));
+        strncpy(temp1,&(data[sizeof(char)+2*sizeof(int)+2*sizeof(int)*i]),Open_Files[fileDesc]->attrLength1);
         printf("\t%d. %s - ",i,temp1);
         memcpy(&temp,&(data[sizeof(char)+2*sizeof(int)+2*sizeof(int)*i+sizeof(int)]),sizeof(int));
         printf("%d\n",temp);
