@@ -13,5 +13,6 @@ int sort(int,int,void *,void *);
 Split_Data * split(int ,BF_Block *,char *,int ,void *,void *);
 int traverse(int,int,void*,int *);
 int op_function(void * ,void *,char ,int ,int );
+int Find_ScanIdex_position(char *,void *,int,int,int *);
 
 #endif

@@ -7,7 +7,7 @@
 #include <unistd.h>
 #include "List.h"
 #include "B_Tree.h"
-static int loop = 0;
+
 int AM_errno = AME_OK;
 
 open_files **Open_Files = NULL;
@@ -69,62 +69,79 @@ int AM_CreateIndex(char *fileName,
     AM_errno = 2;
     return AM_errno;
   }
+
   int fd;
   BF_Block *block;
-  BF_Block_Init(&block);                                                            //Initialize Block
-  if((AM_errno = BF_CreateFile(fileName)) != BF_OK){                                //Create a new Block File
+  //Initialize Block
+  BF_Block_Init(&block);
+
+  //Create a new Block File
+  if((AM_errno = BF_CreateFile(fileName)) != BF_OK){
     BF_Block_Destroy(&block);
-    return AM_errno;                                                                //Return error
+    //Return error
+    AM_errno = 3;
+    return AM_errno;
   }
 
-  if((AM_errno = BF_OpenFile(fileName, &fd)) != BF_OK){                              //Open the file
+  //Open the file
+  if((AM_errno = BF_OpenFile(fileName, &fd)) != BF_OK){
     BF_Block_Destroy(&block);
-    return AM_errno;                                                                //Return error
+    //Return error
+    AM_errno = 4;
+    return AM_errno;  
   }
 
-  if((AM_errno = BF_AllocateBlock(fd, block)) != BF_OK){                            //Allocate a new block
+  //Allocate a new block
+  if((AM_errno = BF_AllocateBlock(fd, block)) != BF_OK){
     BF_CloseFile(fd);
     BF_Block_Destroy(&block);
-    return AM_errno;                                                                //Return error
+    //Return error
+    AM_errno = 5;
+    return AM_errno;
   } 
+
+  //Initialize the new file as B+ file
   char* data;
   data = BF_Block_GetData(block);
   int m = 0;
-  memcpy(data, "B+", sizeof(char)*3);                                               //Initialize the new file as B+ file
+  memcpy(data, "B+", sizeof(char)*3);
   m+=3;
-  data[3] = attrType1;                                                              //Store the type of key  
+  data[3] = attrType1;        //Store the type of key  
   m += 1;
-  memcpy(data+m,(char *)&attrLength1,sizeof(int));                                   //Store the length of key 
+  memcpy(data+m,(char *)&attrLength1,sizeof(int));    //Store the length of key 
   m+=sizeof(int);
-  data[m] = attrType2;                                                              //Store the type second field
+  data[m] = attrType2;       //Store the type second field
   m+=1;
-  memcpy(data+m,(char *)&attrLength2,sizeof(int));                                     //Store the length of second field 
+  memcpy(data+m,(char *)&attrLength2,sizeof(int));    //Store the length of second field 
   m+=sizeof(int);        
-  int root_num = -1;                                                          //default root number( -1 == NULL)
-  memcpy(data+m,&root_num,sizeof(int));                                                  //Set root as not exists
-  BF_Block_SetDirty(block);                                                         //Set block Dirty
-  BF_UnpinBlock(block);                                                             //Unpin Block
-  BF_CloseFile(fd);                                                                 //Close file
+  int root_num = -1;                     //default root number( -1 == NULL)
+  memcpy(data+m,&root_num,sizeof(int));  //Set root as not exists
+  BF_Block_SetDirty(block);              //Set block Dirty
+  BF_UnpinBlock(block);                  //Unpin Block
+  BF_CloseFile(fd);                      //Close file
   BF_Block_Destroy(&block);
   return AME_OK;
+
 }
 
 
 
 
 int AM_DestroyIndex(char *fileName) {
-
   int i;
   for (i=0;i<MAXOPENFILES;i++)    
   {
     if (Open_Files[i]!=NULL)
     {
-      if (strcmp(fileName,Open_Files[i]->filename))                                   //check for filename
+      //check for filename
+      if (strcmp(fileName,Open_Files[i]->filename)){
         continue;
-      return AM_errno;                                                                //file open - Error
+      }
+      AM_errno = 6;
+      return 6;  //file open - Error
     }
   }
-  unlink(fileName);                                                                  //delete file  
+  unlink(fileName);     //delete file  
   return AME_OK;
 }
 
@@ -136,23 +153,32 @@ int AM_OpenIndex (char *fileName) {
   char *data;
   BF_Block *block;
   BF_Block_Init(&block);
+
+  //Open the file
   if((AM_errno = BF_OpenFile(fileName, &fd)) != BF_OK)
   {
     BF_Block_Destroy(&block);
+    AM_errno = 4;
     return AM_errno;
   }
+
+  //Get the first block with the metadata info
   BF_GetBlock(fd,0,block);
   data = BF_Block_GetData(block);
+
+  //If block is not a B+ Tree file, return error
   if (strcmp(data,"B+"))
   {
     BF_UnpinBlock(block);
     BF_Block_Destroy(&block);
+    AM_errno = 7;
     return AM_errno;
   }
+
   int i;
   for (i=0;i<MAXOPENFILES;i++)
   {
-    if (Open_Files[i] == NULL)                                                      //find empty cell ,create struct and fill it
+    if (Open_Files[i] == NULL)       //find empty cell ,create struct and fill it
     {
       int m=3;
       Open_Files[i] = malloc(sizeof(open_files));   
@@ -169,9 +195,12 @@ int AM_OpenIndex (char *fileName) {
       memcpy(&(Open_Files[i]->root_number),&data[m],sizeof(int));
       BF_UnpinBlock(block);                                                                       
       BF_Block_Destroy(&block);
-      return i;                                                                     //return cell's position
+      return i;                 //return cell's position
     }   
   }
+  AM_errno = 8;
+  BF_UnpinBlock(block);                                                                       
+  BF_Block_Destroy(&block);
   return -1;
 }
 
@@ -179,15 +208,18 @@ int AM_OpenIndex (char *fileName) {
 
 int AM_CloseIndex (int fileDesc) {
   int i;
-  for (i=0;i<MAXSCANS;i++)                                                      //Search for active scans 
+  //Search for active scans 
+  for (i=0;i<MAXSCANS;i++)
   {
     if (Scan_Files[i]!=NULL)
     {
-      if (Scan_Files[i]->fd == fileDesc)                                        //If exists
-        return AM_errno;                                                        //Return error
+      //If exists
+      if (Scan_Files[i]->fd == fileDesc)
+        AM_errno = 9;
+        return AM_errno;   //Return error
     }
   }
-
+  //Search for finding open_file index
   for (i=0;i<MAXOPENFILES;i++)                                                  
   {
     if (Open_Files[i]!=NULL)
@@ -198,52 +230,60 @@ int AM_CloseIndex (int fileDesc) {
       }   
     }                                                 
   }
+  //If exists in open_files array, close file and delete index in array
   if(i<MAXOPENFILES){
     if((AM_errno = BF_CloseFile(Open_Files[i]->fd)) != BF_OK){
-     return AM_errno;
+      AM_errno = 10;
+      return AM_errno;
     }
-    free(Open_Files[i]);
+    //free(Open_Files[i]);
     Open_Files[i]=NULL;
+  }
+  //Otherwise return error
+  else{
+    AM_errno = 11;
+    return AM_errno;
   }
   return AME_OK;
 }
 
 
+
+
 int AM_InsertEntry(int fileDesc, void *value1, void *value2) {
   BF_Block *block;
-  BF_Block_Init(&block);                                                            //Initialize Block
+  //Initialize Block
+  BF_Block_Init(&block);
+  //If root not exists 
   if(Open_Files[fileDesc]->root_number == -1){
-    printf("Max Entries to Data block: %d\n",(BF_BLOCK_SIZE-sizeof(char)-3*sizeof(int))/
-      (Open_Files[fileDesc]->attrLength1+Open_Files[fileDesc]->attrLength2));
-    printf("Max Entries to Index block: %d\n",(BF_BLOCK_SIZE-sizeof(char)-3*sizeof(int))/
-      (Open_Files[fileDesc]->attrLength1+sizeof(int)));
-    Initialize_Root(fileDesc,value1,-1,-1);                                         //Create B+ Tree's root
+    //Create B+ Tree's root
+    Initialize_Root(fileDesc,value1,-1,-1);
   }
+  //Else find the data block for insert the new value
   int block_number;
   int prev = Open_Files[fileDesc]->root_number;
-  //Get the data block
-  List * list = List_Create();                                                      //Create a list(Stack) for block's number
-  loop++;
+  List * list = List_Create();  //Create a list(Stack) for block's number
   List_Push(list,prev);
   int op = -1;
   while((block_number = traverse(fileDesc,prev,value1,&op)) != -1){
     prev = block_number;
-    List_Push(list,prev);                                                   //Store the blocks number, in case of splitting
+    List_Push(list,prev);  //Store the blocks number, in case of splitting
   }
-  prev = List_Pop(list);                                                            //Get the last visited block
+  prev = List_Pop(list);    //Get the last visited block
   BF_GetBlock(Open_Files[fileDesc]->fd,prev,block);                                    //Read block
-  char * data = BF_Block_GetData(block);
+  char * data = BF_Block_GetData(block);                               //If there is not free space
+
   //Insert new entry and sort it
-  while(sort(fileDesc,prev,value1,value2) < 0){                               //If there is not free space
+  while(sort(fileDesc,prev,value1,value2) < 0){
     Split_Data * split_data = split(fileDesc,block,data,prev,value1,value2);        //SPLIT
     int temp_value2 = *(split_data->pointer);                                       //value2 -> new pointer to index block 
-    strncpy(value1,split_data->value,Open_Files[fileDesc]->attrLength1);             //value1 -> new value for insertion in index block
+    memcpy(value1,split_data->value,Open_Files[fileDesc]->attrLength1);             //value1 -> new value for insertion in index block
     value2 = &temp_value2;
     int x;
     x = List_Pop(list);
+    printf("After split block: %d and value %d\n",x,*(int*)value1); 
     if(x == -1){                                                                    //Split root
       x = Initialize_Root(fileDesc,split_data->value,prev,*((int*)split_data->pointer));
-      //free(split_data);
       break;
     }
     prev = x;
@@ -279,9 +319,9 @@ int AM_OpenIndexScan(int fileDesc, int op, void *value) {
   void *temp = NULL;
   //If we have op in {EQAUL,GREATER_THAN,GREATER_THAN_OR_EQUAL} find the data_block which
   //the value could exist
-  if(op == EQUAL || op == GREATER_THAN || op == GREATER_THAN_OR_EQUAL){
+  //if(op == EQUAL || op == GREATER_THAN || op == GREATER_THAN_OR_EQUAL){
     temp = value;
-  }
+  //}
   int block_number;
   int temp_op = op;
   int prev = Open_Files[fileDesc]->root_number;
@@ -422,6 +462,18 @@ void *AM_FindNextEntry(int scanDesc) {
 
 
 int AM_CloseIndexScan(int scanDesc) {
+  if(Scan_Files == NULL){
+    AM_errno = 12;
+    return AM_errno;
+  }
+  if(Scan_Files[scanDesc] != NULL){
+    free(Scan_Files[scanDesc]);
+    Scan_Files[scanDesc] = NULL;
+  }
+  else{
+    AM_errno = 12;
+    return AM_errno;
+  }
   return AME_OK;
 }
 
@@ -431,12 +483,58 @@ int AM_CloseIndexScan(int scanDesc) {
 void AM_PrintError(char *errString) {
   fprintf(stderr,"%s",errString);
   switch(AM_errno){
-    case 1:
+    case 2:{
+      fprintf(stderr,"Error: AM_CreateIndex, wrong AttrType and AttrLength\n");
       break;
-    case 2:
+    }
+    case 3:{
+      fprintf(stderr, "Error: Failed on BF_CreateFile\n");
       break;
-    case 3:
+    }
+    case 4:{
+      fprintf(stderr,"Error: Failed on BF_OpenFile\n");
       break;
+    }
+    case 5:{
+      fprintf(stderr,"Error: Failed on BF_AllocateBlock\n");
+      break;
+    }
+    case 6:{
+      fprintf(stderr,"Error: Failed on AM_DestroyIndex, the file which we tried to remove it, is still Open/Active\n");
+      break;
+    }
+    case 7:{
+      fprintf(stderr,"Error: Failed on AM_OpenIndex, the file is not a B+ Tree File\n");
+      break;
+    }
+    case 8:{
+      fprintf(stderr,"Error: Failed on AM_OpenIndex, Array with Active files is full\n");
+      break;
+    }
+    case 9:{
+      fprintf(stderr,"Error: Failed on AM_CloseIndex, the file has active scans\n");
+      break;
+    }
+    case 10:{
+      fprintf(stderr,"Error: Failed on BF_Close\n");
+      break;
+    }
+    case 11:{
+      fprintf(stderr,"Error: Failed on AM_CloseIndex, the file is not open\n");
+      break;
+    }
+    case 12:{
+      fprintf(stderr,"Error: Failed on AM_CloseIndexScan,there is not an active scan\n");
+      break;
+    }
+    case 13:{
+      //fprintf(stderr,"Error: Failed on AM_CloseIndex, the file is not open\n");
+      break;
+    }
+    case 14:{
+      // fprintf(stderr,"Error: Failed on AM_CloseIndex, the file is not open\n");
+      break;
+    }
     default:
       ;
   }
@@ -503,16 +601,18 @@ void AM_Print(int fileDesc){
       }
       memcpy(temp1,&(data[sizeof(char)+2*sizeof(int)+(Open_Files[fileDesc]->attrLength1 +sizeof(int))*i]),Open_Files[fileDesc]->attrLength1);
       temp1[50] = '\0';
-      printf("%d. %s",i,temp1);
+      printf("%d. %s ",i,temp1);
       memcpy(&temp,&(data[sizeof(char)+2*sizeof(int)+(Open_Files[fileDesc]->attrLength1 +sizeof(int))*i+Open_Files[fileDesc]->attrLength1]),sizeof(int));
       printf("%d\n",temp);
     }
   }
+  //exit(1);
   int block_number;
   int op = -1;
   while((block_number = traverse(fileDesc,prev,NULL,&op)) != -1){
     prev = block_number;                                          
   }
+  int loop = 0;
   while(prev != -1){
     BF_GetBlock(Open_Files[fileDesc]->fd,prev,block);
     data = BF_Block_GetData(block);
@@ -531,12 +631,18 @@ void AM_Print(int fileDesc){
       for(i=0;i<*counter;i++){
         int temp;
         char temp1[Open_Files[fileDesc]->attrLength1];
-        strncpy(temp1,&(data[sizeof(char)+2*sizeof(int)+2*sizeof(int)*i]),Open_Files[fileDesc]->attrLength1);
+        strncpy(temp1,&(data[sizeof(char)+2*sizeof(int)+(Open_Files[fileDesc]->attrLength1+Open_Files[fileDesc]->attrLength2)*i]),Open_Files[fileDesc]->attrLength1);
+        temp1[Open_Files[fileDesc]->attrLength1-1] = '\0';
         printf("\t%d. %s - ",i,temp1);
-        memcpy(&temp,&(data[sizeof(char)+2*sizeof(int)+2*sizeof(int)*i+sizeof(int)]),sizeof(int));
+        memcpy(&temp,&(data[sizeof(char)+2*sizeof(int)+(Open_Files[fileDesc]->attrLength1+Open_Files[fileDesc]->attrLength2)*i+Open_Files[fileDesc]->attrLength1]),sizeof(int));
         printf("%d\n",temp);
       }
     }
     memcpy(&prev,&(data[BF_BLOCK_SIZE-sizeof(int)]),sizeof(int));
+    printf("%d\n",prev);
+    loop++;
+    if(loop > 1000){
+      exit(1);
+    }
   }
 }
