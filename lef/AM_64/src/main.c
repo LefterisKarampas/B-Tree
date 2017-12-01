@@ -9,7 +9,7 @@ int main(void){
 	AM_Init();
 	char name[40];
 	strcpy(name,"lef");
-	if(AM_CreateIndex(name,INTEGER,sizeof(int),INTEGER,sizeof(int)) != AME_OK){
+	if(AM_CreateIndex(name,STRING,10,INTEGER,sizeof(int)) != AME_OK){
 		AM_PrintError("AM_CreateIndex");
 		exit(1);
 	}
@@ -18,21 +18,21 @@ int main(void){
 		AM_PrintError("AM_OpenIndex");
 		exit(1);
 	}
-	int v1 = 10;
+	/*int v1 = 10;
 	int v2 = 10;
 	int k = 1;
 	AM_InsertEntry(p,(void *)&v1,(void*)&v2);
 	for(int i=7300;i>-7000;i--){
 		if(i % 2 == 0){
-			k *=-1;
+			;//k *=-1;
 		}
 		v1 = k*i;
 		v2 = k*i;
 		AM_InsertEntry(p,(void *)&v1,(void*)&v2);
-	}
+	}*/
 
 
-	/*char v1[10];
+	char v1[10];
 	sprintf(v1,"%d",10);
 	int v2 = 10;
 	AM_InsertEntry(p,(void *)&v1,(void*)&v2);
@@ -55,7 +55,7 @@ int main(void){
 			v2 = -251;
 			AM_InsertEntry(p,(void *)&v1,(void*)&v2);
 		}
-	}*/
+	}
 	//exit(1);
 	/*
 	for(i=2500;i>1500;i--){
