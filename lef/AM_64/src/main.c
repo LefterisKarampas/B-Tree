@@ -18,20 +18,24 @@ int main(void){
 		AM_PrintError("AM_OpenIndex");
 		exit(1);
 	}
-	/*int v1 = 10;
+	/*float v1 = 10.0;
 	int v2 = 10;
 	int k = 1;
+	for(int i=0;i<58;i++){
+		AM_InsertEntry(p,(void *)&v1,(void*)&v2);
+	}
 	AM_InsertEntry(p,(void *)&v1,(void*)&v2);
-	for(int i=7300;i>-7000;i--){
+	for(int i=-7300;i<7000;i++){
 		if(i % 2 == 0){
-			;//k *=-1;
+			//k *=-1;
 		}
-		v1 = k*i;
+		v1 = (double)k*i + 0.05;
+		//printf("Main: %f\n",v1);
 		v2 = k*i;
 		AM_InsertEntry(p,(void *)&v1,(void*)&v2);
 	}*/
 
-
+	//int i;
 	char v1[10];
 	sprintf(v1,"%d",10);
 	int v2 = 10;
@@ -88,18 +92,24 @@ int main(void){
 	AM_InsertEntry(p,(void *)&v1,(void*)&v2);
 	//exit(1);
 	AM_Print(p);
-	exit(1);
-	i = AM_OpenIndexScan(p,2,(void *)&v1);
+	exit(1);*/
+	sprintf(v1,"%f",100.0);
+	v2 = 100;
+	AM_InsertEntry(p,(void *)&v1,(void*)&v2);
+	//int i;
+	//v1 = 100;
+	i = AM_OpenIndexScan(p,4,(void *)&v1);
 	int * t;
 	while((t = (int *)AM_FindNextEntry(i))){
 		printf("EntryValue: %d\n",*t);
-	}*/
-	/*AM_OpenIndexScan(p,2,(void *)&v1);
+	}
+	/*
+	AM_OpenIndexScan(p,2,(void *)&v1);
 	AM_OpenIndexScan(p,3,(void *)&v1);
 	AM_OpenIndexScan(p,4,(void *)&v1);
 	AM_OpenIndexScan(p,5,(void *)&v1);
 	AM_OpenIndexScan(p,6,(void *)&v1);*/
-
+	exit(1);
 
 	AM_Print(p);
 	printf("END\n");
