@@ -36,11 +36,11 @@ int AM_CreateIndex(char *fileName,
                  char attrType2, 
                  int attrLength2) {
   //Check for correct attrType1 and attrLegth1
-  if(attrType1 == 'i' && attrLength1 != 4){
+  if(attrType1 == 'i' && attrLength1 != sizeof(int)){
     AM_errno = 2;
     return AM_errno;
   }
-  else if(attrType1 == 'f' && attrLength1 != 4){
+  else if(attrType1 == 'f' && attrLength1 != sizeof(float)){
     AM_errno = 2;
     return AM_errno;
   }
@@ -53,11 +53,11 @@ int AM_CreateIndex(char *fileName,
     return AM_errno;
   }
   //Check for correct attrType2 and attrLegth2
-  if(attrType2 == 'i' && attrLength2 != 4){
+  if(attrType2 == 'i' && attrLength2 != sizeof(int)){
     AM_errno = 2;
     return AM_errno;
   }
-  else if(attrType2 == 'f' && attrLength2 != 4){
+  else if(attrType2 == 'f' && attrLength2 != sizeof(float)){
     AM_errno = 2;
     return AM_errno;
   }
@@ -104,9 +104,9 @@ int AM_CreateIndex(char *fileName,
   char* data;
   data = BF_Block_GetData(block);
   int m = 0;
-  memcpy(data, "B+", sizeof(char)*3);
-  m+=3;
-  data[3] = attrType1;        //Store the type of key  
+  memcpy(data, "B+", sizeof(char)*(strlen("B+")+1));
+  m+= strlen("B+")+1;
+  data[m] = attrType1;        //Store the type of key  
   m += 1;
   memcpy(data+m,(char *)&attrLength1,sizeof(int));    //Store the length of key 
   m+=sizeof(int);
@@ -274,15 +274,15 @@ int AM_InsertEntry(int fileDesc, void *value1, void *value2) {
   char * data = BF_Block_GetData(block);                               //If there is not free space
 
   //Insert new entry and sort it
+  int x;
   while(sort(fileDesc,data,block,prev,value1,value2) < 0){
     Split_Data * split_data = split(fileDesc,block,data,prev,value1,value2);        //SPLIT
     int temp_value2 = *(split_data->pointer);                                       //value2 -> new pointer to index block 
     memcpy(value1,split_data->value,Open_Files[fileDesc]->attrLength1);             //value1 -> new value for insertion in index block
-    value2 = &temp_value2;
-    int x;
+    memcpy(value2,split_data->pointer,sizeof(int));
     x = List_Pop(list);
     if(x == -1){                                                                    //Split root
-      x = Initialize_Root(fileDesc,split_data->value,prev,*((int*)split_data->pointer));
+      Initialize_Root(fileDesc,split_data->value,prev,*((int*)split_data->pointer));
       break;
     }
     prev = x;
@@ -376,16 +376,20 @@ void *AM_FindNextEntry(int scanDesc) {
   int counter,new_block;
   memcpy(&counter, &data[sizeof(char)], sizeof(int));
   void *value1 ;
-  if(Open_Files[Scan_Files[scanDesc]->fd]->attrType1 == 'i'){
+  if(Open_Files[Scan_Files[scanDesc]->fd]->attrType2 == 'i'){
     value1 = (int *)malloc(sizeof(int));
   }
-  else if(Open_Files[Scan_Files[scanDesc]->fd]->attrType1 == 'f'){
+  else if(Open_Files[Scan_Files[scanDesc]->fd]->attrType2 == 'f'){
    value1 = (float *)malloc(sizeof(float));
   }
   else{
-   value1 = (char *)malloc(Open_Files[Scan_Files[scanDesc]->fd]->attrLength1);
+   value1 = (char *)malloc(sizeof(char)*Open_Files[Scan_Files[scanDesc]->fd]->attrLength2);
   } 
-  memcpy(value1,&data[m+size*pos+attrLength1],attrLength2);  
+  if(value1 == NULL){
+    fprintf(stderr, "Malloc error\n");
+    exit(1);
+  }
+  memcpy(value1,&data[m+size*pos+attrLength1],attrLength2);
   int flag =0 ;
   pos++;
   while(pos<counter)

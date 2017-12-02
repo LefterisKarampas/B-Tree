@@ -26,3 +26,7 @@ main:
 	@echo " Compile main ...";
 	gcc -I ./include/ -L ./lib/ -Wl,-rpath,./lib/ ./src/main.c ./src/AM.c ./src/List.c ./src/B_Tree.c -lbf -o ./build/main
 
+test:
+	@echo " Compile test ...";
+	gcc -I ./include/ -L ./lib/ -Wl,-rpath,./lib/ test_main.c ./src/AM.c ./src/List.c ./src/B_Tree.c -lbf -o test
+

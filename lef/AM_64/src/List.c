@@ -1,4 +1,4 @@
-#include "List.h"
+#include "../include/List.h"
 #include <stdlib.h>
 
 //Create a new list and return the pointer to it

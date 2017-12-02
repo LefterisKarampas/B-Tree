@@ -6,4 +6,4 @@ if [ "$?" != "0" ];then
 	echo "Fail Compile!"
 	exit 1
 fi
-./build/main
+valgrind ./build/main 2> error
