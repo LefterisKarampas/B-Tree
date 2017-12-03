@@ -632,7 +632,6 @@ int Find_Scan(int fileDesc,int block_num,void *value,int *id_block,int *op){
   if ((AM_errno = BF_GetBlock(Open_Files[fileDesc]->fd, block_num, block)) != BF_OK)
   {
     BF_Block_Destroy(&block);
-    printf("%d\n",block_num);
     AM_PrintError("Failed open BF_GetBlock");
     return AM_errno;
   }
