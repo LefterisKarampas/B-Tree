@@ -6,23 +6,22 @@
 
 
 typedef struct open_files{
-	int fd;
-	char * filename;
-	char attrType1;
-	int attrLength1;
-	char attrType2;
-	int attrLength2;
-	int root_number;
-
+	int fd;							//FileDescriptor 
+	char * filename;				//FileName
+	char attrType1;					//Type of first field
+	int attrLength1;				//Length of first field
+	char attrType2;					//Type of second field
+	int attrLength2;				//Length of second field
+	int root_number;				//B+Tree's root (block number)
 }open_files;
 
 
 typedef struct scan_files{
-	int fd;
-	int id_block;
-	int record_number;
-	int op;
-	void * value;
+	int fd;							//Index to OpenFiles
+	int id_block;					//Block number
+	int record_number;				//Position of record
+	int op;							//Comparison operator
+	void * value;					//Comparison value
 }scan_files;
 
 

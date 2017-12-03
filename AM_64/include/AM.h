@@ -72,5 +72,6 @@ void AM_PrintError(
 
 void AM_Close();
 
+void AM_Print(int fileDesc);
 
 #endif /* AM_H_ */

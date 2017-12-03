@@ -1,5 +1,6 @@
-#include "List.h"
+#include "../include/List.h"
 #include <stdlib.h>
+#include <stdio.h>
 
 //Create a new list and return the pointer to it
 List * List_Create(){
@@ -32,7 +33,6 @@ int List_Push(List *list,int pointer){
 	return 0;
 }
 
-
 //Pop the first element of the List
 int List_Pop(List *list){
 	Node * temp;
@@ -45,4 +45,12 @@ int List_Pop(List *list){
 		return p;
 	}
 	return -1;
+}
+
+void List_Print(List *list){
+	Node * temp = *list;
+	while(temp){
+		printf("%d->\n",temp->block);
+		temp = temp->next;
+	}
 }

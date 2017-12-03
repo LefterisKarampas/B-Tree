@@ -21,3 +21,9 @@ bf_main2:
 bf_main3:
 	@echo " Compile bf_main3 ...";
 	gcc -I ./include/ -L ./lib/ -Wl,-rpath,./lib/ ./examples/bf_main3.c -lbf -o ./build/bf_main3 -O2
+
+main:
+	@echo " Compile main ...";
+	gcc -I ./include/ -L ./lib/ -Wl,-rpath,./lib/ ./src/main.c ./src/AM.c ./src/List.c ./src/B_Tree.c -lbf -o ./build/main
+
+
