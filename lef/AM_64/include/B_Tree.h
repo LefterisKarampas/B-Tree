@@ -18,7 +18,7 @@ int compare(void *,void *,char,int);
 int sort(int,char *,BF_Block * ,int,void *,void *);
 
 //Split a full block and sort new blocks
-Split_Data * split(int ,BF_Block *,char *,int ,void *,void *);
+void split(int ,BF_Block *,char *,int ,void *,void *,Split_Data **);
 
 //Get a value and return a pointer to a block which we have to follow
 int traverse(int,int,void*,int *);

@@ -32,6 +32,7 @@ int Initialize_Root(int fileDesc,void * value1,int p0,int p1){
   char * data;
   //Read block
   data = BF_Block_GetData(block);
+  memset(data,0,BF_BLOCK_SIZE);
   data[0] = 'i';          //Initialize it as index block
   int m = 1;
   int k = 1;
@@ -210,12 +211,13 @@ int sort(int fileDesc,char *data,BF_Block * block,int block_num,void *value1,voi
 
 
 
-Split_Data * split(int fileDesc,BF_Block * block,char *data,int block_num,void *value1,void *value2){
+void split(int fileDesc,BF_Block * block,char *data,int block_num,void *value1,void *value2,Split_Data ** split_data){
   BF_Block *block2;
   BF_Block_Init(&block2);
   char* data2;
   BF_AllocateBlock(Open_Files[fileDesc]->fd, block2);
   data2 = BF_Block_GetData(block2);
+  memset(data2,0,BF_BLOCK_SIZE);
   int new_blocknum;
   BF_GetBlockCounter(Open_Files[fileDesc]->fd,&new_blocknum);
   new_blocknum = new_blocknum-1;
@@ -298,7 +300,7 @@ Split_Data * split(int fileDesc,BF_Block * block,char *data,int block_num,void *
       memcpy(&(data2[m+attrLength1]),value2,attrLength2);
       int c = 1;
       memcpy(&(data2[1]),&c,sizeof(int));
-      Split_Data * split_data = (Split_Data *)malloc(sizeof(Split_Data));
+      /*Split_Data * split_data = (Split_Data *)malloc(sizeof(Split_Data));
       split_data->pointer = &new_blocknum;
       if(Open_Files[fileDesc]->attrType1 == 'i'){
         split_data->value = (int *)malloc(Open_Files[fileDesc]->attrLength1);
@@ -307,12 +309,13 @@ Split_Data * split(int fileDesc,BF_Block * block,char *data,int block_num,void *
       }
       else{
          split_data->value = (char *)malloc(Open_Files[fileDesc]->attrLength1);
-      }
-      memcpy(split_data->value,value1,attrLength1);
+      }*/
+      memcpy((*split_data)->value,value1,attrLength1);
+      memcpy((*split_data)->pointer,&new_blocknum,sizeof(int));
       BF_Block_SetDirty(block2);
       BF_UnpinBlock(block2);
       BF_Block_Destroy(&block2);
-      return split_data;
+      //return split_data;
     }
     else{
       //If new value is less or equal  
@@ -371,7 +374,7 @@ Split_Data * split(int fileDesc,BF_Block * block,char *data,int block_num,void *
     }
   }
 
-  Split_Data * split_data = (Split_Data *)malloc(sizeof(Split_Data));
+  /*Split_Data * split_data = (Split_Data *)malloc(sizeof(Split_Data));
   if(Open_Files[fileDesc]->attrType1 == 'i'){
     split_data->value = (int *)malloc(sizeof(int));
   }
@@ -380,16 +383,16 @@ Split_Data * split(int fileDesc,BF_Block * block,char *data,int block_num,void *
   }
   else{
    split_data->value = (char *)malloc(sizeof(char)*Open_Files[fileDesc]->attrLength1);
-  }       
-  split_data->pointer = &new_blocknum;
+  }*/       
+  memcpy((*split_data)->pointer,&new_blocknum,sizeof(int));
 
   if(data[0] == 'i'){
-    strncpy(split_data->value,&data[m+mod*size],attrLength1);
+    memcpy((*split_data)->value,&data[m+mod*size],attrLength1);
     memcpy(&(data2[m-sizeof(int)]),&(data[m+mod*size+attrLength1]),sizeof(int));
     memcpy(&(data[m+mod*size+attrLength1]),&null_pointer,sizeof(int));
   }
   else{
-    memcpy(split_data->value,&(data2[m]),attrLength1);
+    memcpy((*split_data)->value,&(data2[m]),attrLength1);
   }
   BF_Block_SetDirty(block);
   BF_Block_SetDirty(block2);
@@ -403,7 +406,7 @@ Split_Data * split(int fileDesc,BF_Block * block,char *data,int block_num,void *
     BF_UnpinBlock(block2);
   }
   BF_Block_Destroy(&block2);
-  return split_data;
+  //return split_data;
 
 }
 
@@ -442,20 +445,10 @@ int traverse(int fileDesc, int block_num,void* value1,int *op)
 	m+= 2*sizeof(int);				//position: first key in block
 	int next_pointer=-1;											
 	int prev_pointer=-1;
-
-  void* val2;
-  if(Open_Files[fileDesc]->attrType1 == 'i'){
-    val2 = (int *)malloc(sizeof(int));
-  }else if(Open_Files[fileDesc]->attrType1 == 'f'){
-   val2 = (float *)malloc(sizeof(float));
-  }
-  else{
-    val2 = (char *)malloc(sizeof(char)*Open_Files[fileDesc]->attrLength1);
-  }              
+      
 	for (i=0;i<counter;i++)
 	{
-		memcpy(val2, &(data[m]), Open_Files[fileDesc]->attrLength1);
-		if (!compare(value1, val2, Open_Files[fileDesc]->attrType1, Open_Files[fileDesc]->attrLength1)){
+		if (!compare(value1, &(data[m]), Open_Files[fileDesc]->attrType1, Open_Files[fileDesc]->attrLength1)){
       break;
     }
 		else
@@ -466,8 +459,6 @@ int traverse(int fileDesc, int block_num,void* value1,int *op)
 			m+= (sizeof(int) + Open_Files[fileDesc]->attrLength1);
 		}
 	}
-  val2 = NULL;
-  free(val2);
 
 	m-=sizeof(int);
 	memcpy(&pointer_value, &data[m], sizeof(int));
@@ -493,6 +484,7 @@ int traverse(int fileDesc, int block_num,void* value1,int *op)
   	{
   		BF_GetBlock(Open_Files[fileDesc]->fd, prev_pointer, block);
   		data = BF_Block_GetData(block);
+      memset(data,0,BF_BLOCK_SIZE);
   		memcpy(&temp_next_pointer, &data[BF_BLOCK_SIZE- sizeof(int)], sizeof(int));
   		memcpy(&data[BF_BLOCK_SIZE- sizeof(int)], &temp,sizeof(int));
 		  BF_Block_SetDirty(block);

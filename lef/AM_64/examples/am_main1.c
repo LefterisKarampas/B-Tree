@@ -1091,8 +1091,10 @@ int main() {
 	/********************************************************************************
 	 *  Εύρεση της πρώτης εγγραφής με όνομα "KOKKINOS ARISTOTELHS"                  *
 	 ********************************************************************************/
-	if ((ivalue = (int*) AM_FindNextEntry(scan1)) != NULL)
+	if ((ivalue = (int*) AM_FindNextEntry(scan1)) != NULL){
 		printf("%d \n\n", *ivalue);
+		free(ivalue);
+	}
 	else {
 		sprintf(errStr, "Error in AM_FindNextEntry called on scan %d \n\n",
 				scan1);
@@ -1140,6 +1142,7 @@ int main() {
 	 ********************************************************************************/
 	while ((cvalue = (char*) AM_FindNextEntry(scan1)) != NULL) {
 		printf("'%s'\n", cvalue);
+		free(cvalue);
 	}
 
 	if (AM_errno != AME_EOF) {
@@ -1187,6 +1190,7 @@ int main() {
 	 ********************************************************************************/
 	while ((cvalue = (char*) AM_FindNextEntry(scan1)) != NULL) {
 		printf("'%s' \n", cvalue);
+		free(cvalue);
 	}
 
 	if (AM_errno != AME_EOF) {

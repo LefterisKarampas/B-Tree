@@ -103,6 +103,7 @@ int AM_CreateIndex(char *fileName,
   //Initialize the new file as B+ file
   char* data;
   data = BF_Block_GetData(block);
+  memset(data,0,BF_BLOCK_SIZE);
   int m = 0;
   memcpy(data, "B+", sizeof(char)*(strlen("B+")+1));
   m+= strlen("B+")+1;
@@ -129,16 +130,20 @@ int AM_CreateIndex(char *fileName,
 
 int AM_DestroyIndex(char *fileName) {
   int i;
+  //For each position in Open Files
   for (i=0;i<MAXOPENFILES;i++)    
   {
+    //check if the position is not NULL
     if (Open_Files[i]!=NULL)
     {
       //check for filename
       if (strcmp(fileName,Open_Files[i]->filename)){
         continue;
       }
-      AM_errno = 6;
-      return 6;  //file open - Error
+      else{
+        AM_errno = 6;
+        return 6;  //file open - Error
+      }
     }
   }
   unlink(fileName);     //delete file  
@@ -180,24 +185,32 @@ int AM_OpenIndex (char *fileName) {
   {
     if (Open_Files[i] == NULL)       //find empty cell ,create struct and fill it
     {
-      int m=3;
+      int m = strlen("B+")+1;
       Open_Files[i] = malloc(sizeof(open_files));   
       Open_Files[i]->fd = fd;
-      memcpy(&(Open_Files[i]->filename),&fileName,strlen(fileName)+1);
+      //Store the filename
+      Open_Files[i]->filename = (char *)malloc(sizeof(char)*(strlen(fileName)+1));
+      strcpy(Open_Files[i]->filename,fileName);
+      //Get the attrType1 
       memcpy(&(Open_Files[i]->attrType1),&data[m],sizeof(char));
-      m+=1;
+      m+=sizeof(char);
+      //Get the attrLength1
       memcpy(&(Open_Files[i]->attrLength1),&data[m],sizeof(int));
       m+=sizeof(int);
+      //Get the attrType2
       memcpy(&(Open_Files[i]->attrType2),&data[m],sizeof(char));
-      m+=1;
+      m+=sizeof(char);
+      //Get the attrLength2
       memcpy(&(Open_Files[i]->attrLength2),&data[m],sizeof(int));
       m+=sizeof(int);
+      //Store the B+ Tree's root (block number)
       memcpy(&(Open_Files[i]->root_number),&data[m],sizeof(int));
       BF_UnpinBlock(block);                                                                       
       BF_Block_Destroy(&block);
       return i;                 //return cell's position
     }   
   }
+  //No empty position to open a file
   AM_errno = 8;
   BF_UnpinBlock(block);                                                                       
   BF_Block_Destroy(&block);
@@ -219,25 +232,15 @@ int AM_CloseIndex (int fileDesc) {
         return AM_errno;   //Return error
     }
   }
-  //Search for finding open_file index
-  for (i=0;i<MAXOPENFILES;i++)                                                  
-  {
-    if (Open_Files[i]!=NULL)
-    {
-      if (Open_Files[i]->fd == fileDesc)
-      {
-        break; 
-      }   
-    }                                                 
-  }
   //If exists in open_files array, close file and delete index in array
-  if(i<MAXOPENFILES){
-    if((AM_errno = BF_CloseFile(Open_Files[i]->fd)) != BF_OK){
+  if(Open_Files[fileDesc] != NULL){
+    if((AM_errno = BF_CloseFile(Open_Files[fileDesc]->fd)) != BF_OK){
       AM_errno = 10;
       return AM_errno;
     }
-    //free(Open_Files[i]);
-    Open_Files[i]=NULL;
+    free(Open_Files[fileDesc]->filename);
+    free(Open_Files[fileDesc]);
+    Open_Files[fileDesc]=NULL;
   }
   //Otherwise return error
   else{
@@ -269,31 +272,47 @@ int AM_InsertEntry(int fileDesc, void *value1, void *value2) {
     prev = block_number;
     List_Push(list,prev);  //Store the blocks number, in case of splitting
   }
-  prev = List_Pop(list);    //Get the last visited block
-  BF_GetBlock(Open_Files[fileDesc]->fd,prev,block);                                    //Read block
+  block_number = List_Pop(list);    //Get the last visited block
+  BF_GetBlock(Open_Files[fileDesc]->fd,block_number,block);                    //Read block
   char * data = BF_Block_GetData(block);                               //If there is not free space
 
-  //Insert new entry and sort it
   int x;
-  while(sort(fileDesc,data,block,prev,value1,value2) < 0){
-    Split_Data * split_data = split(fileDesc,block,data,prev,value1,value2);        //SPLIT
-    int temp_value2 = *(split_data->pointer);                                       //value2 -> new pointer to index block 
-    memcpy(value1,split_data->value,Open_Files[fileDesc]->attrLength1);             //value1 -> new value for insertion in index block
+  //Insert new entry and sort it
+  while(sort(fileDesc,data,block,block_number,value1,value2) < 0){
+    //Split block
+    Split_Data * split_data = malloc(sizeof(Split_Data));
+    split_data->pointer = malloc(sizeof(int));
+    if(Open_Files[fileDesc]->attrType1 == 'i'){
+      split_data->value = (int *)malloc(Open_Files[fileDesc]->attrLength1);
+    }else if(Open_Files[fileDesc]->attrType1 == 'f'){
+      split_data->value = (float *)malloc(Open_Files[fileDesc]->attrLength1);
+    }
+    else{
+       split_data->value = (char *)malloc(Open_Files[fileDesc]->attrLength1);
+    }
+    split(fileDesc,block,data,block_number,value1,value2,&split_data);
+    //value1 -> new value for insertion in index block
+    memcpy(value1,split_data->value,Open_Files[fileDesc]->attrLength1);
+    //value2 -> new pointer to index block 
     memcpy(value2,split_data->pointer,sizeof(int));
+    //Get the parent block
     x = List_Pop(list);
-    if(x == -1){                                                                    //Split root
-      Initialize_Root(fileDesc,split_data->value,prev,*((int*)split_data->pointer));
+    if(x == -1){
+      //We have to Split root
+      Initialize_Root(fileDesc,split_data->value,block_number,*split_data->pointer);
       break;
     }
-    prev = x;
+    block_number = x;
     BF_UnpinBlock(block);
-    BF_GetBlock(Open_Files[fileDesc]->fd,prev,block);                                    //Read block
-    data = BF_Block_GetData(block);                                                   
+    BF_GetBlock(Open_Files[fileDesc]->fd,block_number,block);   //Read block
+    data = BF_Block_GetData(block);
+    free(split_data->pointer); 
+    free(split_data->value);                                                  
     free(split_data);
   }
   List_Destroy(list);
   free(list);
-  BF_UnpinBlock(block);                                                             //Unpin Block
+  BF_UnpinBlock(block);      //Unpin Block
   BF_Block_Destroy(&block);
   return AME_OK;
 }
@@ -324,14 +343,18 @@ int AM_OpenIndexScan(int fileDesc, int op, void *value) {
   int temp_op = op;
   int prev = Open_Files[fileDesc]->root_number;
   int id_block;
+
   while((block_number = Find_Scan(fileDesc,prev,value,&id_block,&temp_op)) != -1){
     prev = block_number;
   }
-
-
+  //Find scan returns the id_block which we have to go 
+  //for getting Entry and the record_number in block (temp_op)
+  
   //Get scan record number miss
   Scan_Files[i] = (scan_files *)malloc(sizeof(scan_files));
   Scan_Files[i]->fd = fileDesc;
+  //If record_number in block is NULL,there is not any entry
+  //then set the block_id with NULL 
   if(temp_op == -1){
     memcpy(&(Scan_Files[i]->id_block),&temp_op,sizeof(int));
   }
@@ -340,15 +363,16 @@ int AM_OpenIndexScan(int fileDesc, int op, void *value) {
   }
   memcpy(&(Scan_Files[i]->record_number),&temp_op,sizeof(int));
   memcpy(&(Scan_Files[i]->op),&op,sizeof(int));
+
   if(Open_Files[fileDesc]->attrType1 == 'i'){
     Scan_Files[i]->value = (int *)malloc(Open_Files[fileDesc]->attrLength1);
   }else if(Open_Files[fileDesc]->attrType1 == 'f'){
     Scan_Files[i]->value = (float *)malloc(Open_Files[fileDesc]->attrLength1);
   }
   else{
-     Scan_Files[i]->value = (char *)malloc(Open_Files[fileDesc]->attrLength1);
+     Scan_Files[i]->value = (char *)malloc(sizeof(char)*Open_Files[fileDesc]->attrLength1);
   }
-  memcpy( Scan_Files[i]->value,value,Open_Files[fileDesc]->attrLength1);
+  memcpy(Scan_Files[i]->value,value,Open_Files[fileDesc]->attrLength1);
   return i;
 }
 
@@ -470,7 +494,8 @@ int AM_CloseIndexScan(int scanDesc) {
     return AM_errno;
   }
   if(Scan_Files[scanDesc] != NULL){
-    free(Scan_Files[scanDesc]);
+    free(Scan_Files[scanDesc]->value);   //Delete the value from struct
+    free(Scan_Files[scanDesc]);          //Delete the struct
     Scan_Files[scanDesc] = NULL;
   }
   else{
