@@ -277,8 +277,10 @@ int AM_InsertEntry(int fileDesc, void *value1, void *value2) {
   char * data = BF_Block_GetData(block);                               //If there is not free space
 
   int x;
+  int flag = sort(fileDesc,data,block,block_number,value1,value2);
+  int t2;
   //Insert new entry and sort it
-  while(sort(fileDesc,data,block,block_number,value1,value2) < 0){
+  while(flag < 0){
     //Split block
     Split_Data * split_data = malloc(sizeof(Split_Data));
     split_data->pointer = malloc(sizeof(int));
@@ -294,7 +296,7 @@ int AM_InsertEntry(int fileDesc, void *value1, void *value2) {
     //value1 -> new value for insertion in index block
     memcpy(value1,split_data->value,Open_Files[fileDesc]->attrLength1);
     //value2 -> new pointer to index block 
-    memcpy(value2,split_data->pointer,sizeof(int));
+    memcpy(&t2,split_data->pointer,sizeof(int));
     //Get the parent block
     x = List_Pop(list);
     if(x == -1){
@@ -309,6 +311,7 @@ int AM_InsertEntry(int fileDesc, void *value1, void *value2) {
     free(split_data->pointer); 
     free(split_data->value);                                                  
     free(split_data);
+    flag = sort(fileDesc,data,block,block_number,value1,&t2);
   }
   List_Destroy(list);
   free(list);
@@ -621,112 +624,4 @@ void AM_Close() {
     free(Scan_Files);
   }
   BF_Close();
-}
-
-
-
-void AM_Print(int fileDesc){
-  BF_Block *block;
-  BF_Block_Init(&block);  
-  char *data;
-  int i;
-  int *counter = malloc(sizeof(int));                                          //Initialize Block
-  int prev = Open_Files[fileDesc]->root_number;
-  int size = Open_Files[fileDesc]->attrLength1 + Open_Files[fileDesc]->attrLength2;
-  int attrLength2 = Open_Files[fileDesc]->attrLength2;
-  BF_GetBlock(Open_Files[fileDesc]->fd,prev,block);
-  data = BF_Block_GetData(block);
-  printf("Root %d:\n",prev);
-  memcpy(counter,&(data[1]),sizeof(int));
-  if(Open_Files[fileDesc]->attrType1 == 'i'){
-    int temp;
-    for(i=0;i<*counter;i++){
-      if(i == 0){
-        memcpy(&temp,&(data[sizeof(char)+sizeof(int)]),sizeof(int));
-        printf("\t%d\n",temp);
-      }
-      memcpy(&temp,&(data[sizeof(char)+2*sizeof(int)+(Open_Files[fileDesc]->attrLength1 +sizeof(int))*i]),Open_Files[fileDesc]->attrLength1);
-      printf("%d. %d -> ",i,temp);
-      memcpy(&temp,&(data[sizeof(char)+2*sizeof(int)+(Open_Files[fileDesc]->attrLength1 +sizeof(int))*i+Open_Files[fileDesc]->attrLength1]),sizeof(int));
-      printf("%d\n",temp);
-    }
-  }
-  else if(Open_Files[fileDesc]->attrType1 == 'f'){
-    int temp;
-    for(i=0;i<*counter;i++){
-      if(i == 0){
-        memcpy(&temp,&(data[sizeof(char)+sizeof(int)]),sizeof(int));
-        printf("\t%d\n",temp);
-      }
-      memcpy(&temp,&(data[sizeof(char)+2*sizeof(int)+(Open_Files[fileDesc]->attrLength1 +sizeof(int))*i]),Open_Files[fileDesc]->attrLength1);
-      printf("%d. %d -> ",i,temp);
-      memcpy(&temp,&(data[sizeof(char)+2*sizeof(int)+(Open_Files[fileDesc]->attrLength1 +sizeof(int))*i+Open_Files[fileDesc]->attrLength1]),sizeof(int));
-      printf("%d\n",temp);
-    }
-  }
-  else if(Open_Files[fileDesc]->attrType1 == 'c'){
-    char temp1[Open_Files[fileDesc]->attrLength1];
-    int temp;
-    for(i=0;i<*counter;i++){
-      if(i == 0){
-        memcpy(&temp,&(data[sizeof(char)+sizeof(int)]),sizeof(int));
-        printf("\t%d\n",temp);
-      }
-      memcpy(temp1,&(data[sizeof(char)+2*sizeof(int)+(Open_Files[fileDesc]->attrLength1 +sizeof(int))*i]),Open_Files[fileDesc]->attrLength1);
-      temp1[50] = '\0';
-      printf("%d. %s ",i,temp1);
-      memcpy(&temp,&(data[sizeof(char)+2*sizeof(int)+(Open_Files[fileDesc]->attrLength1 +sizeof(int))*i+Open_Files[fileDesc]->attrLength1]),sizeof(int));
-      printf("%d\n",temp);
-    }
-  }
-  BF_UnpinBlock(block);
-  //exit(1);
-  int block_number;
-  int op = -1;
-  while((block_number = traverse(fileDesc,prev,NULL,&op)) != -1){
-    prev = block_number;                                          
-  }
-  int m = 2*sizeof(int)+sizeof(char);
-  while(prev != -1){
-    BF_GetBlock(Open_Files[fileDesc]->fd,prev,block);
-    data = BF_Block_GetData(block);
-    printf("Block %d:\n",prev);
-    memcpy(counter,&(data[1]),sizeof(int));
-    if(Open_Files[fileDesc]->attrType1 == 'i'){
-      for(i=0;i<*counter;i++){
-        int temp;
-        memcpy(&temp,&(data[sizeof(char)+2*sizeof(int)+2*sizeof(int)*i]),sizeof(int));
-        printf("\t%d. %d - ",i,temp);
-        memcpy(&temp,&(data[sizeof(char)+2*sizeof(int)+2*sizeof(int)*i+sizeof(int)]),sizeof(int));
-        printf("%d\n",temp);
-      }
-    }
-    else if(Open_Files[fileDesc]->attrType1 == 'f'){
-      for(i=0;i<*counter;i++){
-        int temp;
-        float temp1;
-        memcpy(&temp1,&(data[m+size*i]),Open_Files[fileDesc]->attrLength1);
-        //temp1[Open_Files[fileDesc]->attrLength1-1] = '\0';
-        printf("\t%d. %f - ",i,temp1);
-        memcpy(&temp,&(data[m+size*i+Open_Files[fileDesc]->attrLength1]),Open_Files[fileDesc]->attrLength2);
-        printf("%s\n",temp);
-      }
-    }
-    else if(Open_Files[fileDesc]->attrType1 == 'c'){
-      for(i=0;i<*counter;i++){
-        int temp;
-        char temp1[Open_Files[fileDesc]->attrLength1];
-        strncpy(temp1,&(data[m+size*i]),Open_Files[fileDesc]->attrLength1);
-        temp1[Open_Files[fileDesc]->attrLength1-1] = '\0';
-        printf("\t%d. %s - ",i,temp1);
-        memcpy(&temp,&(data[m+size*i+Open_Files[fileDesc]->attrLength1]),sizeof(int));
-        printf("%d\n",temp);
-      }
-    }
-    memcpy(&prev,&(data[BF_BLOCK_SIZE-sizeof(int)]),sizeof(int));
-    printf("%d\n",prev);
-    BF_UnpinBlock(block);
-  }
-  free(counter);
-  BF_Block_Destroy(&block);
 }

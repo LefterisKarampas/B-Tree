@@ -149,13 +149,12 @@ int op_function(void * value1,void *value2,char attrType,int attrLength,int op){
 //Sort entries in the block and return 0 if new entry fits in block
 //othewise return -1 for full block, can use it both data block and index block
 int sort(int fileDesc,char *data,BF_Block * block,int block_num,void *value1,void *value2){
-  char id = data[0];
   int attrLength1 = Open_Files[fileDesc]->attrLength1;    //Hold attr1 length
   int attrLength2;                                        //Hold attr2 length
   int counter;                                            //Get the counter of entries
   int size;
   memcpy(&counter,&(data[sizeof(char)]),sizeof(int));
-  if(id == 'd'){
+  if(data[0] == 'd'){
     attrLength2 = Open_Files[fileDesc]->attrLength2;
     size = attrLength1+attrLength2;
     if(counter >= ((BF_BLOCK_SIZE - 3*sizeof(int)-sizeof(char))/size)){
@@ -177,7 +176,7 @@ int sort(int fileDesc,char *data,BF_Block * block,int block_num,void *value1,voi
     //Compare the new entry with the current, if new < current then shift right the current
     if(!compare(value1,&(data[m+size*i]),Open_Files[fileDesc]->attrType1,attrLength1)){
       memcpy(&data[m+size*(i+1)],&(data[m+size*i]),attrLength1);
-      memcpy(&data[m+size*(i+1)+attrLength1],&data[m+size*i+attrLength1],attrLength2);
+      memcpy(&(data[m+size*(i+1)+attrLength1]),&(data[m+size*i+attrLength1]),attrLength2);
     }
     //Else insert the new entry, right of the current
     else{
