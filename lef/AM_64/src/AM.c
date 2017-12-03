@@ -345,6 +345,9 @@ int AM_OpenIndexScan(int fileDesc, int op, void *value) {
   int id_block;
 
   while((block_number = Find_Scan(fileDesc,prev,value,&id_block,&temp_op)) != -1){
+    if(temp_op == -1){
+      break;
+    }
     prev = block_number;
   }
   //Find scan returns the id_block which we have to go 
@@ -381,25 +384,34 @@ int AM_OpenIndexScan(int fileDesc, int op, void *value) {
 
 
 void *AM_FindNextEntry(int scanDesc) {
-  if(Scan_Files[scanDesc]->id_block == -1)             //ERROR
+  //If block_id is NULL(-1), there is not any other entries!
+  if(Scan_Files[scanDesc]->id_block == -1)
   {
     AM_errno = AME_EOF; 
     return NULL;
   }
+  //Get block and data
   BF_Block *block;
   BF_Block_Init(&block); 
   BF_GetBlock(Open_Files[Scan_Files[scanDesc]->fd]->fd,Scan_Files[scanDesc]->id_block,block);
   char *data;
   data = BF_Block_GetData(block);
+
+  //Get the record_number
   int pos = Scan_Files[scanDesc]->record_number;
+
   int m=sizeof(char)+2*sizeof(int);
   int size;
   int attrLength1 = Open_Files[Scan_Files[scanDesc]->fd]->attrLength1; 
   int attrLength2 = Open_Files[Scan_Files[scanDesc]->fd]->attrLength2;
   size = attrLength1 + attrLength2;
   int counter,new_block;
+
+  //Get the block's entry counter
   memcpy(&counter, &data[sizeof(char)], sizeof(int));
-  void *value1 ;
+
+  void *value1;
+  //Allocate space for return entry
   if(Open_Files[Scan_Files[scanDesc]->fd]->attrType2 == 'i'){
     value1 = (int *)malloc(sizeof(int));
   }
@@ -413,15 +425,20 @@ void *AM_FindNextEntry(int scanDesc) {
     fprintf(stderr, "Malloc error\n");
     exit(1);
   }
+
+  //Get the second field of the entry
   memcpy(value1,&data[m+size*pos+attrLength1],attrLength2);
   int flag =0 ;
+
+  //Find the position of the next entry
   pos++;
+  //Search the block's entries
   while(pos<counter)
   {
     flag = 0;
     int result;
     switch(Scan_Files[scanDesc]->op){
-      case 1:{
+      case EQUAL:{
         result = op_function(Scan_Files[scanDesc]->value,&data[m+size*pos], Open_Files[Scan_Files[scanDesc]->fd]->attrType1,attrLength1, Scan_Files[scanDesc]->op);
         if(result){
           Scan_Files[scanDesc]->id_block = -1;
@@ -429,14 +446,15 @@ void *AM_FindNextEntry(int scanDesc) {
         flag = 1;
         break;
       }
-      case 2:{
+      case NOT_EQUAL:{
         result = op_function(Scan_Files[scanDesc]->value,&data[m+size*pos], Open_Files[Scan_Files[scanDesc]->fd]->attrType1,attrLength1, Scan_Files[scanDesc]->op);
         if(!result){
           flag = 1;
         }
         break;
       }
-      case 3:{
+
+      case LESS_THAN:{
         result = op_function(Scan_Files[scanDesc]->value,&data[m+size*pos], Open_Files[Scan_Files[scanDesc]->fd]->attrType1,attrLength1, 4);
         if(result){
           Scan_Files[scanDesc]->id_block = -1;
@@ -444,12 +462,12 @@ void *AM_FindNextEntry(int scanDesc) {
         flag = 1;
         break;
       }
-      case 4:
-      case 6:{
+      case GREATER_THAN:
+      case GREATER_THAN_OR_EQUAL:{
         flag =1;
         break;
       }
-      case 5:{
+      case LESS_THAN_OR_EQUAL:{
         result = op_function(Scan_Files[scanDesc]->value,&data[m+size*pos], Open_Files[Scan_Files[scanDesc]->fd]->attrType1,attrLength1, 6);
         if(result){
           Scan_Files[scanDesc]->id_block = -1;
@@ -458,26 +476,44 @@ void *AM_FindNextEntry(int scanDesc) {
         break;
       }
     }
+    //If find next entry's position, break the loop
     if(flag == 1){
       break;
     }
+    //else go to next position
     pos++;
   }
+  //If we don't find any position in this block
+  //Check if there is next block and search considering comparison operator
   if(flag == 0)                           
   {
     memcpy(&new_block,&data[BF_BLOCK_SIZE-sizeof(int)],sizeof(int));
     if (new_block!= -1)
     {
-      Scan_Files[scanDesc]->id_block = new_block;
-      Scan_Files[scanDesc]->record_number = 0;
+      //Get the next_block data
+      BF_Block * block2;
+      BF_Block_Init(&block2);
+      char *data2;
+      BF_GetBlock(Open_Files[Scan_Files[scanDesc]->fd]->fd,new_block,block2);
+      data2 = BF_Block_GetData(block2);
+      int counter2;
+      //Get block's counter
+      memcpy(&counter2,&(data[1]),sizeof(int));
+      int temp_op = Scan_Files[scanDesc]->op;
+      //Call Find_ScanIdex_position to find the record number and block
+      Scan_Files[scanDesc]->id_block = Find_ScanIndex_position(data2,new_block,Scan_Files[scanDesc]->value,
+        counter2,Open_Files[Scan_Files[scanDesc]->fd]->fd,&temp_op);
+      Scan_Files[scanDesc]->record_number = temp_op;
+      BF_UnpinBlock(block2);
+      BF_Block_Destroy(&block2);
     }
     else
     {
-      Scan_Files[scanDesc]->id_block = -1;
+      Scan_Files[scanDesc]->id_block = -1;    //No other entry to scan
     }
   }
   else{
-    Scan_Files[scanDesc]->record_number = pos;
+    Scan_Files[scanDesc]->record_number = pos;  
   }
   BF_UnpinBlock(block);
   BF_Block_Destroy(&block);
@@ -555,16 +591,8 @@ void AM_PrintError(char *errString) {
       fprintf(stderr,"Error: Failed on AM_CloseIndexScan,there is not an active scan\n");
       break;
     }
-    case 13:{
-      //fprintf(stderr,"Error: Failed on AM_CloseIndex, the file is not open\n");
-      break;
-    }
-    case 14:{
-      // fprintf(stderr,"Error: Failed on AM_CloseIndex, the file is not open\n");
-      break;
-    }
     default:
-      ;
+      break;
   }
 }
 
@@ -577,6 +605,7 @@ void AM_Close() {
   if(Open_Files != NULL){
     for(i=0;i<MAXOPENFILES;i++){
       if(Open_Files[i] != NULL){
+        free(Open_Files[i]->filename);
         free(Open_Files[i]);
       }
     }
@@ -585,6 +614,7 @@ void AM_Close() {
   if(Scan_Files != NULL){
     for(i=0;i<MAXSCANS;i++){
       if(Scan_Files[i] != NULL){
+        free(Scan_Files[i]->value);
         free(Scan_Files[i]);
       }
     }
@@ -592,6 +622,8 @@ void AM_Close() {
   }
   BF_Close();
 }
+
+
 
 void AM_Print(int fileDesc){
   BF_Block *block;
@@ -607,6 +639,19 @@ void AM_Print(int fileDesc){
   printf("Root %d:\n",prev);
   memcpy(counter,&(data[1]),sizeof(int));
   if(Open_Files[fileDesc]->attrType1 == 'i'){
+    int temp;
+    for(i=0;i<*counter;i++){
+      if(i == 0){
+        memcpy(&temp,&(data[sizeof(char)+sizeof(int)]),sizeof(int));
+        printf("\t%d\n",temp);
+      }
+      memcpy(&temp,&(data[sizeof(char)+2*sizeof(int)+(Open_Files[fileDesc]->attrLength1 +sizeof(int))*i]),Open_Files[fileDesc]->attrLength1);
+      printf("%d. %d -> ",i,temp);
+      memcpy(&temp,&(data[sizeof(char)+2*sizeof(int)+(Open_Files[fileDesc]->attrLength1 +sizeof(int))*i+Open_Files[fileDesc]->attrLength1]),sizeof(int));
+      printf("%d\n",temp);
+    }
+  }
+  else if(Open_Files[fileDesc]->attrType1 == 'f'){
     int temp;
     for(i=0;i<*counter;i++){
       if(i == 0){
@@ -654,6 +699,17 @@ void AM_Print(int fileDesc){
         printf("\t%d. %d - ",i,temp);
         memcpy(&temp,&(data[sizeof(char)+2*sizeof(int)+2*sizeof(int)*i+sizeof(int)]),sizeof(int));
         printf("%d\n",temp);
+      }
+    }
+    else if(Open_Files[fileDesc]->attrType1 == 'f'){
+      for(i=0;i<*counter;i++){
+        int temp;
+        float temp1;
+        memcpy(&temp1,&(data[m+size*i]),Open_Files[fileDesc]->attrLength1);
+        //temp1[Open_Files[fileDesc]->attrLength1-1] = '\0';
+        printf("\t%d. %f - ",i,temp1);
+        memcpy(&temp,&(data[m+size*i+Open_Files[fileDesc]->attrLength1]),Open_Files[fileDesc]->attrLength2);
+        printf("%s\n",temp);
       }
     }
     else if(Open_Files[fileDesc]->attrType1 == 'c'){
